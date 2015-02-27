@@ -15,16 +15,13 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   default :codec, "plain"
 
   # Example URI: mongodb://mydb.host:27017/mydbname?ssl=true
-  config :uri, validate => :string, :required => true
+  config :uri, :validate => :string, :required => true
 
   # The path to the sqlite database file.
   config :path, :validate => :string, :required => true
 
   # Any table to exclude by name
   config :exclude_tables, :validate => :array, :default => []
-
-  # The database to use
-  config :database, :validate => :string, :required => true
 
   # The collection to use. Should accept wildcard (i.e. 'events_*')
   # Example collection: events_20150227
@@ -42,9 +39,6 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   # The "_id" field will use the timestamp of the event and overwrite an existing
   # "_id" field in the event.
   config :generateId, :validate => :boolean, :default => false
-
-  # The message string to use in the event.
-  config :message, :validate => :string, :default => "Hello World!"
 
   # Set how frequently messages should be sent.
   # The default, `1`, means send a message every second.
@@ -126,8 +120,8 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
       conn.apply_saved_authentication()
     end
     @host = Socket.gethostname
-    @logger.info("Registering MongoDB input", :database => @path)
-    @mongodb = conn.db(@database)
+    @logger.info("Registering MongoDB input", :database => @uriParsed.db_name)
+    @mongodb = conn.db(@uriParsed.db_name)
     @sqlitedb = Sequel.connect("sqlite://#{@path}")
     # Should check to see if there are new matching tables at a predefined interval or on some trigger
     @collections = get_collection_names(@mongodb)
