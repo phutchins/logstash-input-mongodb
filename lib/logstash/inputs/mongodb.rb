@@ -65,11 +65,11 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   end
 
   public
-  def get_placeholder(sqlitedb, table)
+  def get_placeholder(sqlitedb, since_table, mongodb, mongo_collection_name)
     since = db[SINCE_TABLE]
-    x = since.where(:table => "#{table}")
+    x = since.where(:table => "#{since_table}")
     if x[:place].nil?
-      init_placeholder(sqlitedb, table)
+      init_placeholder(sqlitedb, since_table, mongodb, mongo_collection_name)
       return 0
     else
       @logger.debug("placeholder already exists, it is #{x[:place]}")
@@ -78,10 +78,13 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   end
 
   public
-  def init_placeholder(sqlitedb, table)
-    @logger.debug("init placeholder for #{table}")
+  def init_placeholder(sqlitedb, since_table, mongodb, mongo_collection_name)
+    @logger.debug("init placeholder for #{since_table}")
     since = db[SINCE_TABLE]
-    since.insert(:table => table, :place => 0)
+    mongo_collection = mongodb.collection(mongo_collection_name)
+    first_entry = mongo_collection.find_one({})
+    first_entry_id = first_entry['_id'].to_s
+    since.insert(:table => since_table, :place => first_entry_id)
   end
 
   public
@@ -92,8 +95,8 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   end
 
   public
-  def get_n_rows_from_table(mongodb, table, offset, limit)
-    dataset = db[]
+  def get_all_tables(mongodb)
+    return @mongodb.collection_names
   end
 
   public
@@ -102,15 +105,15 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   end
 
   public
-  def get_all_tables(mongodb)
-    return @mongodb.collection_names
+  def get_cursor_for_collection(mongodb, collection_name, last_id)
+    collection = mongodb.collection(collection_name)
+    return collection.find({:_id => {:$gt => last_id}})
   end
 
   public
   def register
     require "mongo"
-    include Mongo
-    require "jdbc/sqlite3"
+    require "sqlite3"
     require "sequel"
     uriParsed = Mongo::URIParser.new(@uri)
     conn = uriParsed.connection({})
@@ -125,14 +128,14 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     @host = Socket.gethostname
     @logger.info("Registering MongoDB input", :database => @path)
     @mongodb = conn.db(@database)
-    @sqlitedb = Sequel.connect("jdbc:sqlite:#{@path}")
+    @sqlitedb = Sequel.connect("sqlite://#{@path}")
     # Should check to see if there are new matching tables at a predefined interval or on some trigger
     @collections = get_collection_names(@mongodb)
     @collection_data = {}
     @collections.each do |collection|
       init_placeholder_table(@sqlitedb)
-      last_place = get_placeholder(@sqlitedb, collection)
-      @collection_data[collection] = { :name => collection, :place => last_place }
+      last_id = get_placeholder(@sqlitedb, since_table, @mongodb, collection)
+      @collection_data[collection] = { :name => collection, :last_id => last_id }
     end
 
   end # def register
@@ -145,37 +148,37 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     begin
       @logger.debug("Tailing MongoDB", :path => @path)
       loop do
-        count = 0
-        @table_data.each do |k, table|
-          table_name = table[:name]
-          offset = table[:place]
-          @logger.debug("offset is #{offset}", :k => k, :table => table_name)
-          rows = get_n_rows_from_table(@mongodb, table_name, offset, @batch)
-          count += rows.count
-          rows.each do |row|
-            event = LogStash::Event.new("host" => @host, "db" => @db)
+        @collection_data.each do |k, collection|
+          collection_name = collection[:name]
+          start_id = collection[:last_id]
+          @logger.debug("start_id is #{start_id}", :k => k, :collection => collection_name)
+          # get batch of events starting at the last_place if it is set
+          cursor = get_cursor_for_collection(@mongodb, collection_name, start_id)
+          cursor.each do |doc|
+            event = LogStash::Event.new("host" => @host, "mongodb" => @mongodb)
             decorate(event)
             # store each column as a field in the event
-            row.each do |column, element|
-              next if column == :id
-              event[column.to_s] = element
-            end
+            # doc.each do |column, element|
+            #   next if column == :id
+            #   event[column.to_s] = element
+            # end
+            event_id = doc['_id']
+            event_date = doc['_id'].generation_time
+            event['@timestamp'] = event_date
+            event[event_id] = doc.to_s
             queue << event
-            @table_data[k][:place] = row[:id]
+            @table_data[k][:last_id] = doc[:id]
           end
-          # Store the last-seen row in the database
-          update_placeholde(@sqlitedb, table_name, @table_data[k][:place])
+          # Store the last-seen doc in the database
+          update_placeholde(@sqlitedb, table_name, @collection_data[k][:last_id])
         end
 
-        if count == 0
-          # nothing found in that iteration
-          # sleep a bit
-          @logger.debug("No new rows. Sleeping.", :time => sleeptime)
-          sleeptime = [sleeptime * 2, sleep_max].min
-          sleep(sleeptime)
-        else
-          sleeptime = sleep_min
-        end
+        # nothing found in that iteration
+        # sleep a bit
+        @logger.debug("No new rows. Sleeping.", :time => sleeptime)
+        sleeptime = [sleeptime * 2, sleep_max].min
+        sleep(sleeptime)
+        #sleeptime = sleep_min
       end
     end
   end # def run
