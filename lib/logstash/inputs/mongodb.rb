@@ -1,6 +1,7 @@
 # encoding: utf-8
 require "logstash/inputs/base"
 require "logstash/namespace"
+require "logstash/timestamp"
 require "stud/interval"
 require "socket" # for Socket.gethostname
 
@@ -23,6 +24,8 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   # Any table to exclude by name
   config :exclude_tables, :validate => :array, :default => []
 
+  config :since_table, :validate => :string, :default => "logstash_since"
+
   # The collection to use. Should accept wildcard (i.e. 'events_*')
   # Example collection: events_20150227
   config :collection, :validate => :string, :required => true
@@ -40,6 +43,9 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   # "_id" field in the event.
   config :generateId, :validate => :boolean, :default => false
 
+  # The message string to use in the event.
+  config :message, :validate => :string, :default => "Hello World!"
+
   # Set how frequently messages should be sent.
   # The default, `1`, means send a message every second.
   config :interval, :validate => :number, :default => 1
@@ -49,7 +55,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   public
   def init_placeholder_table(sqlitedb)
     begin
-      sqlitedb.create_table SINCE_TABLE do
+      sqlitedb.create_table "#{SINCE_TABLE}" do
         String :table
         Int :place
       end
@@ -60,8 +66,8 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
 
   public
   def get_placeholder(sqlitedb, since_table, mongodb, mongo_collection_name)
-    since = db[SINCE_TABLE]
-    x = since.where(:table => "#{since_table}")
+    since = sqlitedb[SINCE_TABLE]
+    x = since.where(:table => "#{since_table}_#{mongo_collection_name}")
     if x[:place].nil?
       init_placeholder(sqlitedb, since_table, mongodb, mongo_collection_name)
       return 0
@@ -73,19 +79,19 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
 
   public
   def init_placeholder(sqlitedb, since_table, mongodb, mongo_collection_name)
-    @logger.debug("init placeholder for #{since_table}")
-    since = db[SINCE_TABLE]
+    @logger.debug("init placeholder for #{since_table}_#{mongo_collection_name}")
+    since = sqlitedb[SINCE_TABLE]
     mongo_collection = mongodb.collection(mongo_collection_name)
     first_entry = mongo_collection.find_one({})
     first_entry_id = first_entry['_id'].to_s
-    since.insert(:table => since_table, :place => first_entry_id)
+    since.insert(:table => "#{since_table}_#{mongo_collection_name}", :place => first_entry_id)
   end
 
   public
-  def update_placeholder(db, table, place)
+  def update_placeholder(sqlitedb, since_table, mongo_collection_name, place)
     @logger.debug("set placeholder to #{place}")
-    since = db[SINCE_TABLE]
-    since.where(:table => table).update(:place => place)
+    since = sqlitedb[SINCE_TABLE]
+    since.where(:table => "#{since_table}_#{mongo_collection_name}").update(:place => place)
   end
 
   public
@@ -99,15 +105,15 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   end
 
   public
-  def get_cursor_for_collection(mongodb, collection_name, last_id)
-    collection = mongodb.collection(collection_name)
+  def get_cursor_for_collection(mongodb, mongo_collection_name, last_id)
+    collection = mongodb.collection(mongo_collection_name)
     return collection.find({:_id => {:$gt => last_id}})
   end
 
   public
   def register
     require "mongo"
-    require "sqlite3"
+    require "jdbc/sqlite3"
     require "sequel"
     uriParsed = Mongo::URIParser.new(@uri)
     conn = uriParsed.connection({})
@@ -120,9 +126,10 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
       conn.apply_saved_authentication()
     end
     @host = Socket.gethostname
-    @logger.info("Registering MongoDB input", :database => @uriParsed.db_name)
-    @mongodb = conn.db(@uriParsed.db_name)
-    @sqlitedb = Sequel.connect("sqlite://#{@path}")
+    @logger.info("Registering MongoDB input", :database => @path)
+    #@mongodb = conn.db(@database)
+    @mongodb = conn.db(uriParsed.db_name)
+    @sqlitedb = Sequel.connect("jdbc:sqlite:#{@path}")
     # Should check to see if there are new matching tables at a predefined interval or on some trigger
     @collections = get_collection_names(@mongodb)
     @collection_data = {}
@@ -144,27 +151,31 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
       loop do
         @collection_data.each do |k, collection|
           collection_name = collection[:name]
-          start_id = collection[:last_id]
-          @logger.debug("start_id is #{start_id}", :k => k, :collection => collection_name)
+          last_id = collection[:last_id]
+          @logger.debug("last_id is #{last_id}", :k => k, :collection => collection_name)
           # get batch of events starting at the last_place if it is set
-          cursor = get_cursor_for_collection(@mongodb, collection_name, start_id)
+          last_id_object = BSON::ObjectId(last_id)
+          cursor = get_cursor_for_collection(@mongodb, collection_name, last_id_object)
+          @logger.debug("Mongo cursor is #{cursor}")
           cursor.each do |doc|
-            event = LogStash::Event.new("host" => @host, "mongodb" => @mongodb)
+            @logger.debug("Parsing document #{doc}")
+            event_id = doc['_id'].to_s
+            @logger.debug("Event_id is: #{event_id}")
+            @timestamp = LogStash::Timestamp.new(doc['_id'].generation_time)
+            @logger.debug("Logstash timestamp is: #{@timestamp}")
+            event = LogStash::Event.new("timestamp" => @timestamp, "host" => @host, "mongodb" => @mongodb)
             decorate(event)
-            # store each column as a field in the event
-            # doc.each do |column, element|
-            #   next if column == :id
-            #   event[column.to_s] = element
-            # end
-            event_id = doc['_id']
-            event_date = doc['_id'].generation_time
-            event['@timestamp'] = event_date
-            event[event_id] = doc.to_s
+            #event['@timestamp'] = LogStash::Timestamp.new(event_date)
+            event["message"] = doc.to_s
             queue << event
-            @table_data[k][:last_id] = doc[:id]
+            @logger.debug("k: #{k}")
+            @logger.debug(":last_id: #{last_id}")
+            @logger.debug("@table_data: #{@table_data}")
+            @logger.debug("doc['_id]: #{doc['_id'].to_s}")
+            @collection_data[k][last_id] = doc['_id'].to_s
           end
           # Store the last-seen doc in the database
-          update_placeholde(@sqlitedb, table_name, @collection_data[k][:last_id])
+          update_placeholder(@sqlitedb, since_table, collection_name, @collection_data[k][:last_id])
         end
 
         # nothing found in that iteration
