@@ -158,10 +158,10 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
       @logger.debug("Tailing MongoDB", :path => @path)
       @logger.debug("Collection data is: #{@collection_data}")
       loop do
-        @collection_data.each do |k, collection|
+        @collection_data.each do |index, collection|
           collection_name = collection[:name]
           last_id = collection[:last_id]
-          @logger.debug("last_id is #{last_id}", :k => k, :collection => collection_name)
+          @logger.debug("last_id is #{last_id}", :index => index, :collection => collection_name)
           # get batch of events starting at the last_place if it is set
           last_id_object = BSON::ObjectId(last_id)
           cursor = get_cursor_for_collection(@mongodb, collection_name, last_id_object, batch_size)
@@ -180,11 +180,11 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             @logger.debug("Message will be: #{doc.to_s}")
             event["message"] = doc.to_s
             queue << event
-            @logger.debug("k: #{k}")
+            @logger.debug("index: #{index}")
             @logger.debug(":last_id: #{last_id}")
             @logger.debug("@table_data: #{@table_data}")
             @logger.debug("doc['_id]: #{doc['_id'].to_s}")
-            @collection_data[k][:last_id] = doc['_id'].to_s
+            @collection_data[index][:last_id] = doc['_id'].to_s
           end
           # Store the last-seen doc in the database
           update_placeholder(@sqlitedb, since_table, collection_name, @collection_data[k][:last_id])
