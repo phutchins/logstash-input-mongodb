@@ -124,6 +124,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     require "mongo"
     require "jdbc/sqlite3"
     require "sequel"
+    require "json"
     uriParsed = Mongo::URIParser.new(@uri)
     conn = uriParsed.connection({})
     if uriParsed.auths.length > 0
@@ -182,7 +183,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             event["logdate"] = logdate.iso8601
             @logger.debug("Event logdate is: #{logdate.iso8601}")
             @logger.debug("Message will be: #{doc.to_s}")
-            event["message"] = doc.to_s
+            event["message"] = doc.to_json
             queue << event
             @logger.debug("index: #{index}")
             @logger.debug(":last_id: #{last_id}")
