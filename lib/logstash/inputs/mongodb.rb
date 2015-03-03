@@ -193,9 +193,9 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             event["message"] = JSON.parse(doc.to_json, :allow_nan => true)
             doc.each do |k, v|
               if k != "_id"
-                if @dig_fields.include? k
+                if @dig_fields.include? k AND v.respond_to? :each
                   v.each do |kk, vv|
-                    if @dig_dig_fields.include? kk
+                    if @dig_dig_fields.include? kk AND vv.respond_to? :each
                       vv.each do |kkk, vvv|
                         if /\A[-+]?\d+\z/ === vvv
                           event["#{k}_#{kk}_#{kkk}"] = vvv.to_i
