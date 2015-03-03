@@ -33,6 +33,8 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   # Example collection: events_20150227 or events_
   config :collection, :validate => :string, :required => true
 
+  config :dig_fields, :validate => :array, :default => []
+
   # If true, store the @timestamp field in mongodb as an ISODate type instead
   # of an ISO8601 string.  For more information about this, see
   # http://www.mongodb.org/display/DOCS/Dates
@@ -185,7 +187,13 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             @logger.debug("Message will be: #{doc.to_json}")
             #event["message"] = doc.to_json
             doc.each do |k, v|
-              event[k] = v.to_json
+              if @dig_fields.include? k
+                k.each do |kk, vv|
+                  event[kk] = vv.to_s
+                end
+              else
+                event[k] = v.to_s
+              end
             end
             queue << event
             @logger.debug("index: #{index}")
