@@ -187,10 +187,10 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
                   v.each do |kk, vv|
                     if @dig_dig_fields.include? kk
                       vv.each do |kkk, vvv|
-                        event[kkk] = vvv.to_s
+                        event["#{k}_#{kk}_#{kkk}"] = vvv.to_s
                       end
                     else
-                      event[kk] = vv.to_s
+                      event["#{k}_#{kk}"] = vv.to_s
                     end
                   end
                 else
