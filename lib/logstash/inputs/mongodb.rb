@@ -46,7 +46,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   config :generateId, :validate => :boolean, :default => false
 
   # The message string to use in the event.
-  config :message, :validate => :string, :default => "Hello World!"
+  config :message, :validate => :string, :default => "Default message..."
 
   # Set how frequently messages should be sent.
   # The default, `1`, means send a message every second.
@@ -150,6 +150,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
 
     begin
       @logger.debug("Tailing MongoDB", :path => @path)
+      @logger.debug("Collection data is: #{@collection_data}")
       loop do
         @collection_data.each do |k, collection|
           collection_name = collection[:name]
