@@ -184,8 +184,8 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             @logger.debug("Event logdate is: #{logdate.iso8601}")
             @logger.debug("Message will be: #{doc.to_json}")
             #event["message"] = doc.to_json
-            doc.to_json.each do |k, v|
-              event[k] = v
+            doc.each do |k, v|
+              event[k] = v.to_json
             end
             queue << event
             @logger.debug("index: #{index}")
