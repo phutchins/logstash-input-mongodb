@@ -28,8 +28,8 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
 
   config :since_table, :validate => :string, :default => "logstash_since"
 
-  # The collection to use. Should accept wildcard (i.e. 'events_*')
-  # Example collection: events_20150227
+  # The collection to use. Is turned into a regex so 'events' will match 'events_20150227'
+  # Example collection: events_20150227 or events_
   config :collection, :validate => :string, :required => true
 
   # If true, store the @timestamp field in mongodb as an ISODate type instead
@@ -102,8 +102,14 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   end
 
   public
-  def get_collection_names(mongodb)
-    return @mongodb.collection_names
+  def get_collection_names(mongodb, collection)
+    collection_names = []
+    @mongodb.collection_names.each do |coll|
+      if /#{collection}/ =~ coll
+        collection_names.push(coll)
+        @logger.debug("Added #{coll} to the collection list as it matches our collection search")
+      end
+    end
   end
 
   public
@@ -133,7 +139,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     @mongodb = conn.db(uriParsed.db_name)
     @sqlitedb = Sequel.connect("jdbc:sqlite:#{@path}")
     # Should check to see if there are new matching tables at a predefined interval or on some trigger
-    @collections = get_collection_names(@mongodb)
+    @collections = get_collection_names(@mongodb, @collection)
     @collection_data = {}
     @collections.each do |collection|
       init_placeholder_table(@sqlitedb)
