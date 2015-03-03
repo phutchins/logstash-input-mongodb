@@ -110,6 +110,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
         @logger.debug("Added #{coll} to the collection list as it matches our collection search")
       end
     end
+    return collection_names
   end
 
   public
