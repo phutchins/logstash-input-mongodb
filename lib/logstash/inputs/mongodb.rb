@@ -140,6 +140,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     @sqlitedb = Sequel.connect("jdbc:sqlite:#{@path}")
     # Should check to see if there are new matching tables at a predefined interval or on some trigger
     @collections = get_collection_names(@mongodb, @collection)
+    @logger.debug("REGISTER - @collections: #{@collections}")
     @collection_data = {}
     @collections.each do |collection|
       init_placeholder_table(@sqlitedb)
