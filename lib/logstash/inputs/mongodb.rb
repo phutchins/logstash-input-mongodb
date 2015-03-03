@@ -35,6 +35,8 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
 
   config :dig_fields, :validate => :array, :default => []
 
+  config :dig_dig_fields, :validate => :array, :default => []
+
   # If true, store the @timestamp field in mongodb as an ISODate type instead
   # of an ISO8601 string.  For more information about this, see
   # http://www.mongodb.org/display/DOCS/Dates
@@ -183,7 +185,13 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
               if k != "_id"
                 if @dig_fields.include? k
                   v.each do |kk, vv|
-                    event[kk] = vv.to_s
+                    if @dig_dig_fields.include? kk
+                      vv.each do |kkk, vvv|
+                        event[kkk] = vvv.to_s
+                      end
+                    else
+                      event[kk] = vv.to_s
+                    end
                   end
                 else
                   event[k] = v.to_s
