@@ -168,6 +168,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             #event['@timestamp'] = LogStash::Timestamp.new(event_date)
             event["date_time"] = date_time.iso8601
             @logger.debug("Event date_time is: #{date_time.iso8601}")
+            @logger.debug("Message will be: #{doc.to_s}")
             event["message"] = doc.to_s
             queue << event
             @logger.debug("k: #{k}")
