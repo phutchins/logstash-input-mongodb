@@ -190,7 +190,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             decorate(event)
             event["logdate"] = logdate.iso8601
             @logger.debug("Message will be: #{JSON.parse(doc.to_json, :allow_nan => true)}")
-            event["message"] = JSON.parse(doc.to_json, allow_nan => true)
+            event["message"] = JSON.parse(doc.to_json, :allow_nan => true)
             doc.each do |k, v|
               if k != "_id"
                 if @dig_fields.include? k
