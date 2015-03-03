@@ -152,8 +152,17 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
       last_id = get_placeholder(@sqlitedb, since_table, @mongodb, collection)
       @collection_data[collection] = { :name => collection, :last_id => last_id }
     end
-
   end # def register
+
+  class BSON::OrderedHash
+    def to_h
+      inject({}) { |acc, element| k,v = element; acc[k] = (if v.class == BSON::OrderedHash then v.to_h else v end); acc }
+    end
+
+    def to_json
+      to_h.to_json
+    end
+  end
 
   def run(queue)
     sleep_min = 0.01
