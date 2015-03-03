@@ -4,6 +4,7 @@ require "logstash/namespace"
 require "logstash/timestamp"
 require "stud/interval"
 require "socket" # for Socket.gethostname
+require "json"
 
 # Generate a repeating message.
 #
@@ -124,7 +125,6 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     require "mongo"
     require "jdbc/sqlite3"
     require "sequel"
-    require "json"
     uriParsed = Mongo::URIParser.new(@uri)
     conn = uriParsed.connection({})
     if uriParsed.auths.length > 0
@@ -182,8 +182,11 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             #event['@timestamp'] = LogStash::Timestamp.new(event_date)
             event["logdate"] = logdate.iso8601
             @logger.debug("Event logdate is: #{logdate.iso8601}")
-            @logger.debug("Message will be: #{doc.to_s}")
-            event["message"] = doc.to_json
+            @logger.debug("Message will be: #{doc.to_json}")
+            #event["message"] = doc.to_json
+            doc.to_json.each do |k, v|
+              event[k] = v
+            end
             queue << event
             @logger.debug("index: #{index}")
             @logger.debug(":last_id: #{last_id}")
