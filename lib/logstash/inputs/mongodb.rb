@@ -160,7 +160,8 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
       loop do
         @collection_data.each do |index, collection|
           collection_name = collection[:name]
-          last_id = collection[:last_id]
+          @logger.debug("IN LOOP - @collection_data is: #{@collection_data}")
+          last_id = @collection_data[index][:last_id]
           @logger.debug("last_id is #{last_id}", :index => index, :collection => collection_name)
           # get batch of events starting at the last_place if it is set
           last_id_object = BSON::ObjectId(last_id)
