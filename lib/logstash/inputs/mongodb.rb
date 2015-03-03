@@ -144,12 +144,10 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     @sqlitedb = Sequel.connect("jdbc:sqlite:#{@path}")
     # Should check to see if there are new matching tables at a predefined interval or on some trigger
     @collections = get_collection_names(@mongodb, @collection)
-    @logger.debug("REGISTER - @collections: #{@collections}")
     @collection_data = {}
     @collections.each do |collection|
       init_placeholder_table(@sqlitedb)
       last_id = get_placeholder(@sqlitedb, since_table, @mongodb, collection)
-      @logger.debug("REGISTER - last_id for '#{collection}' is '#{last_id}'")
       @collection_data[collection] = { :name => collection, :last_id => last_id }
     end
 
@@ -166,26 +164,18 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
       loop do
         @collection_data.each do |index, collection|
           collection_name = collection[:name]
-          @logger.debug("IN LOOP - @collection_data is: #{@collection_data}")
+          @logger.debug("collection_data is: #{@collection_data}")
           last_id = @collection_data[index][:last_id]
           @logger.debug("last_id is #{last_id}", :index => index, :collection => collection_name)
           # get batch of events starting at the last_place if it is set
           last_id_object = BSON::ObjectId(last_id)
           cursor = get_cursor_for_collection(@mongodb, collection_name, last_id_object, batch_size)
-          @logger.debug("Mongo cursor is #{cursor}")
           cursor.each do |doc|
-            @logger.debug("Parsing document #{doc}")
-            event_id = doc['_id'].to_s
-            @logger.debug("Event_id is: #{event_id}")
             logdate = DateTime.parse(doc['_id'].generation_time.to_s)
-            #@timestamp = LogStash::Timestamp.new(logdate)
             event = LogStash::Event.new("host" => @host)
             decorate(event)
-            #event['@timestamp'] = LogStash::Timestamp.new(event_date)
             event["logdate"] = logdate.iso8601
-            @logger.debug("Event logdate is: #{logdate.iso8601}")
-            @logger.debug("Message will be: #{doc.to_json}")
-            #event["message"] = doc.to_json
+            @logger.debug("Message will be: #{doc.to_s}")
             doc.each do |k, v|
               if @dig_fields.include? k
                 v.each do |kk, vv|
@@ -196,10 +186,6 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
               end
             end
             queue << event
-            @logger.debug("index: #{index}")
-            @logger.debug(":last_id: #{last_id}")
-            @logger.debug("@table_data: #{@table_data}")
-            @logger.debug("doc['_id]: #{doc['_id'].to_s}")
             @collection_data[index][:last_id] = doc['_id'].to_s
           end
           # Store the last-seen doc in the database
