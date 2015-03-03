@@ -179,22 +179,34 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             event = LogStash::Event.new("host" => @host)
             decorate(event)
             event["logdate"] = logdate.iso8601
-            @logger.debug("Message will be: #{doc.to_s}")
-            event["message"] = doc.to_s
+            @logger.debug("Message will be: #{JSON.parse(doc, allow_nan => true)}")
+            event["message"] = JSON.parse(doc, allow_nan => true)
             doc.each do |k, v|
               if k != "_id"
                 if @dig_fields.include? k
                   v.each do |kk, vv|
                     if @dig_dig_fields.include? kk
                       vv.each do |kkk, vvv|
-                        event["#{k}_#{kk}_#{kkk}"] = vvv.to_s
+                        if /\A[-+]?\d+\z/ === vvv
+                          event["#{k}_#{kk}_#{kkk}"] = vvv.to_i
+                        else
+                          event["#{k}_#{kk}_#{kkk}"] = vvv.to_s
+                        end
                       end
                     else
-                      event["#{k}_#{kk}"] = vv.to_s
+                      if /\A[-+]?\d+\z/ === vv
+                        event["#{k}_#{kk}"] = vv.to_i
+                      else
+                        event["#{k}_#{kk}"] = vv.to_s
+                      end
                     end
                   end
                 else
-                  event[k] = v.to_s
+                  if /\A[-+]?\d+\z/ === v
+                    event[k] = v.to_i
+                  else
+                    event[k] = v.to_s
+                  end
                 end
               end
             end
