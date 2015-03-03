@@ -173,13 +173,13 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             @logger.debug("Parsing document #{doc}")
             event_id = doc['_id'].to_s
             @logger.debug("Event_id is: #{event_id}")
-            date_time = DateTime.parse(doc['_id'].generation_time.to_s)
-            #@timestamp = LogStash::Timestamp.new(date_time)
+            logdate = DateTime.parse(doc['_id'].generation_time.to_s)
+            #@timestamp = LogStash::Timestamp.new(logdate)
             event = LogStash::Event.new("host" => @host)
             decorate(event)
             #event['@timestamp'] = LogStash::Timestamp.new(event_date)
-            event["date_time"] = date_time.iso8601
-            @logger.debug("Event date_time is: #{date_time.iso8601}")
+            event["logdate"] = logdate.iso8601
+            @logger.debug("Event logdate is: #{logdate.iso8601}")
             @logger.debug("Message will be: #{doc.to_s}")
             event["message"] = doc.to_s
             queue << event
