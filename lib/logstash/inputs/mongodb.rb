@@ -163,7 +163,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             @logger.debug("Event_id is: #{event_id}")
             date_time = DateTime.parse(doc['_id'].generation_time.to_s)
             #@timestamp = LogStash::Timestamp.new(date_time)
-            event = LogStash::Event.new("host" => @host, "mongodb" => @mongodb)
+            event = LogStash::Event.new("host" => @host)
             decorate(event)
             #event['@timestamp'] = LogStash::Timestamp.new(event_date)
             event["date_time"] = date_time.iso8601
