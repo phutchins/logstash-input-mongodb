@@ -146,6 +146,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     @collections.each do |collection|
       init_placeholder_table(@sqlitedb)
       last_id = get_placeholder(@sqlitedb, since_table, @mongodb, collection)
+      @logger.debug("REGISTER - last_id for '#{collection}' is '#{last_id}'")
       @collection_data[collection] = { :name => collection, :last_id => last_id }
     end
 
