@@ -179,7 +179,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             event = LogStash::Event.new("host" => @host)
             decorate(event)
             event["logdate"] = logdate.iso8601
-            @logger.debug("Message will be: #{JSON.parse(doc, allow_nan => true)}")
+            @logger.debug("Message will be: #{JSON.parse(doc, opts = {allow_nan => true})}")
             event["message"] = JSON.parse(doc, allow_nan => true)
             doc.each do |k, v|
               if k != "_id"
