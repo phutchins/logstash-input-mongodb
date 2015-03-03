@@ -162,11 +162,12 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             event_id = doc['_id'].to_s
             @logger.debug("Event_id is: #{event_id}")
             date_time = DateTime.parse(doc['_id'].generation_time.to_s)
-            @timestamp = LogStash::Timestamp.new(date_time)
-            @logger.debug("Logstash timestamp is: #{@timestamp}")
-            event = LogStash::Event.new("timestamp" => @timestamp, "host" => @host, "mongodb" => @mongodb)
+            #@timestamp = LogStash::Timestamp.new(date_time)
+            event = LogStash::Event.new("host" => @host, "mongodb" => @mongodb)
             decorate(event)
             #event['@timestamp'] = LogStash::Timestamp.new(event_date)
+            event["date_time"] = date_time.iso8601
+            @logger.debug("Event date_time is: #{date_time.iso8601}")
             event["message"] = doc.to_s
             queue << event
             @logger.debug("k: #{k}")
