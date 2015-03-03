@@ -188,7 +188,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             #event["message"] = doc.to_json
             doc.each do |k, v|
               if @dig_fields.include? k
-                k.each do |kk, vv|
+                v.each do |kk, vv|
                   event[kk] = vv.to_s
                 end
               else
