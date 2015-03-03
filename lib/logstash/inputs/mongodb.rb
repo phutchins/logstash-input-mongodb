@@ -24,6 +24,8 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   # Any table to exclude by name
   config :exclude_tables, :validate => :array, :default => []
 
+  config :batch_size, :avlidate => :number, :default => 30
+
   config :since_table, :validate => :string, :default => "logstash_since"
 
   # The collection to use. Should accept wildcard (i.e. 'events_*')
@@ -89,7 +91,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
 
   public
   def update_placeholder(sqlitedb, since_table, mongo_collection_name, place)
-    @logger.debug("set placeholder to #{place}")
+    @logger.debug("updating placeholder for #{since_table}_#{mongo_collection_name} to #{place}")
     since = sqlitedb[SINCE_TABLE]
     since.where(:table => "#{since_table}_#{mongo_collection_name}").update(:place => place)
   end
@@ -105,9 +107,9 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   end
 
   public
-  def get_cursor_for_collection(mongodb, mongo_collection_name, last_id)
+  def get_cursor_for_collection(mongodb, mongo_collection_name, last_id_object, batch_size)
     collection = mongodb.collection(mongo_collection_name)
-    return collection.find({:_id => {:$gt => last_id}})
+    return collection.find({:_id => {:$gt => last_id_object}}).limit(batch_size)
   end
 
   public
@@ -155,7 +157,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
           @logger.debug("last_id is #{last_id}", :k => k, :collection => collection_name)
           # get batch of events starting at the last_place if it is set
           last_id_object = BSON::ObjectId(last_id)
-          cursor = get_cursor_for_collection(@mongodb, collection_name, last_id_object)
+          cursor = get_cursor_for_collection(@mongodb, collection_name, last_id_object, batch_size)
           @logger.debug("Mongo cursor is #{cursor}")
           cursor.each do |doc|
             @logger.debug("Parsing document #{doc}")
@@ -175,7 +177,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             @logger.debug(":last_id: #{last_id}")
             @logger.debug("@table_data: #{@table_data}")
             @logger.debug("doc['_id]: #{doc['_id'].to_s}")
-            @collection_data[k][last_id] = doc['_id'].to_s
+            @collection_data[k][:last_id] = doc['_id'].to_s
           end
           # Store the last-seen doc in the database
           update_placeholder(@sqlitedb, since_table, collection_name, @collection_data[k][:last_id])
