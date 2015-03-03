@@ -188,6 +188,10 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
         sleep(sleeptime)
         #sleeptime = sleep_min
       end
+    rescue LogStash::ShutdownSignal
+      if @interrupted
+        @logger.debug("Mongo Input shutting down")
+      end
     end
   end # def run
 
