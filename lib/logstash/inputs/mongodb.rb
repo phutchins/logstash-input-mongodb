@@ -5,6 +5,7 @@ require "logstash/timestamp"
 require "stud/interval"
 require "socket" # for Socket.gethostname
 require "json"
+require "bson"
 
 # Generate a repeating message.
 #
