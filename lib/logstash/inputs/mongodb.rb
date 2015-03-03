@@ -187,7 +187,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             @collection_data[index][:last_id] = doc['_id'].to_s
           end
           # Store the last-seen doc in the database
-          update_placeholder(@sqlitedb, since_table, collection_name, @collection_data[k][:last_id])
+          update_placeholder(@sqlitedb, since_table, collection_name, @collection_data[index][:last_id])
         end
 
         # nothing found in that iteration
