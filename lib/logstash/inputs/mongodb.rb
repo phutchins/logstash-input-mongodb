@@ -171,7 +171,9 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
           last_id_object = BSON::ObjectId(last_id)
           cursor = get_cursor_for_collection(@mongodb, collection_name, last_id_object, batch_size)
           cursor.each do |doc|
+            @logger.debug("Date from mongo: #{doc['_id'].generation_time.to_s}")
             logdate = DateTime.parse(doc['_id'].generation_time.to_s)
+            @logger.debug("logdate.iso8601: #{logdate.iso8601}")
             event = LogStash::Event.new("host" => @host)
             decorate(event)
             event["logdate"] = logdate.iso8601
