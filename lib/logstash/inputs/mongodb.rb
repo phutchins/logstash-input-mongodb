@@ -177,12 +177,14 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             event["logdate"] = logdate.iso8601
             @logger.debug("Message will be: #{doc.to_s}")
             doc.each do |k, v|
-              if @dig_fields.include? k
-                v.each do |kk, vv|
-                  event[kk] = vv.to_s
+              if k != "_id"
+                if @dig_fields.include? k
+                  v.each do |kk, vv|
+                    event[kk] = vv.to_s
+                  end
+                else
+                  event[k] = v.to_s
                 end
-              else
-                event[k] = v.to_s
               end
             end
             queue << event
