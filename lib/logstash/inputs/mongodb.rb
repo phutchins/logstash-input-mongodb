@@ -161,7 +161,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     end
 
     def to_json
-      to_h.to_json
+      JSON.parse(self.to_h, :allow_nan)
     end
   end
 
