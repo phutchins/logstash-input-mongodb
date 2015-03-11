@@ -165,6 +165,45 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     end
   end
 
+  def flatten(my_hash)
+    new_hash = {}
+    my_hash.each do |k1,v1|
+      if v1.is_a?(Hash)
+        v1.each do |k2,v2|
+          if v2.is_a?(Hash)
+            # puts "Found a nested hash"
+            result = flatten(v2)
+            result.each do |k3,v3|
+              new_hash[k1.to_s+"_"+k2.to_s+"_"+k3.to_s] = v3
+            end
+            # puts "result: "+result.to_s+" k2: "+k2.to_s+" v2: "+v2.to_s
+          else
+            new_hash[k1.to_s+"_"+k2.to_s] = v2
+          end
+        end
+      else
+        # puts "Key: "+k1.to_s+" is not a hash"
+        new_hash[k1.to_s] = v1
+      end
+    end
+    return new_hash
+  end
+
+  def bson_debinarize(bson_doc)
+    raise ArgumentError, "bson_doc must be a BSON::OrderedHash" unless bson_doc.is_a?(BSON::OrderedHash)
+
+    # each key and value is passed by reference and is modified in-place
+    bson_doc.each do |k,v|
+      if v.is_a?(BSON::Binary)
+        bson_doc[k] = Base64.encode64(v.to_s)
+      elsif v.is_a?(BSON::OrderedHash)
+        bson_doc[k] = bson_debinarize(v)
+      end
+    end
+
+    bson_doc
+  end
+
   def run(queue)
     sleep_min = 0.01
     sleep_max = 5
@@ -191,35 +230,39 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             event["logdate"] = logdate.iso8601
             @logger.debug("Message will be: #{JSON.parse(doc.to_json, :allow_nan => true)}")
             event["message"] = JSON.parse(doc.to_json, :allow_nan => true)
-            doc.each do |k, v|
-              if k != "_id"
-                if (@dig_fields.include? k) && (v.respond_to? :each)
-                  v.each do |kk, vv|
-                    if (@dig_dig_fields.include? kk) && (vv.respond_to? :each)
-                      vv.each do |kkk, vvv|
-                        if /\A[-+]?\d+\z/ === vvv
-                          event["#{k}_#{kk}_#{kkk}"] = vvv.to_i
-                        else
-                          event["#{k}_#{kk}_#{kkk}"] = vvv.to_s
-                        end
-                      end
-                    else
-                      if /\A[-+]?\d+\z/ === vv
-                        event["#{k}_#{kk}"] = vv.to_i
-                      else
-                        event["#{k}_#{kk}"] = vv.to_s
-                      end
-                    end
-                  end
-                else
-                  if /\A[-+]?\d+\z/ === v
-                    event[k] = v.to_i
-                  else
-                    event[k] = v.to_s
-                  end
-                end
-              end
+            flat_doc = flatten(doc.to_json)
+            flat_doc.each do |k,v|
+              event[k.to_s] = v.to_s
             end
+            #doc.each do |k, v|
+            #  if k != "_id"
+            #    if (@dig_fields.include? k) && (v.respond_to? :each)
+            #      v.each do |kk, vv|
+            #        if (@dig_dig_fields.include? kk) && (vv.respond_to? :each)
+            #          vv.each do |kkk, vvv|
+            #            if /\A[-+]?\d+\z/ === vvv
+            #              event["#{k}_#{kk}_#{kkk}"] = vvv.to_i
+            #            else
+            #              event["#{k}_#{kk}_#{kkk}"] = vvv.to_s
+            #            end
+            #          end
+            #        else
+            #          if /\A[-+]?\d+\z/ === vv
+            #            event["#{k}_#{kk}"] = vv.to_i
+            #          else
+            #            event["#{k}_#{kk}"] = vv.to_s
+            #          end
+            #        end
+            #      end
+            #    else
+            #      if /\A[-+]?\d+\z/ === v
+            #        event[k] = v.to_i
+            #      else
+            #        event[k] = v.to_s
+            #      end
+            #    end
+            #  end
+            #end
             queue << event
             @collection_data[index][:last_id] = doc['_id'].to_s
           end
