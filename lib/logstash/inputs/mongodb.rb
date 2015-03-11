@@ -167,24 +167,28 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
 
   def flatten(my_hash)
     new_hash = {}
-    my_hash.each do |k1,v1|
-      if v1.is_a?(Hash)
-        v1.each do |k2,v2|
-          if v2.is_a?(Hash)
-            # puts "Found a nested hash"
-            result = flatten(v2)
-            result.each do |k3,v3|
-              new_hash[k1.to_s+"_"+k2.to_s+"_"+k3.to_s] = v3
+    if my_hash.respond_to? :each
+      my_hash.each do |k1,v1|
+        if v1.is_a?(Hash)
+          v1.each do |k2,v2|
+            if v2.is_a?(Hash)
+              # puts "Found a nested hash"
+              result = flatten(v2)
+              result.each do |k3,v3|
+                new_hash[k1.to_s+"_"+k2.to_s+"_"+k3.to_s] = v3
+              end
+              # puts "result: "+result.to_s+" k2: "+k2.to_s+" v2: "+v2.to_s
+            else
+              new_hash[k1.to_s+"_"+k2.to_s] = v2
             end
-            # puts "result: "+result.to_s+" k2: "+k2.to_s+" v2: "+v2.to_s
-          else
-            new_hash[k1.to_s+"_"+k2.to_s] = v2
           end
+        else
+          # puts "Key: "+k1.to_s+" is not a hash"
+          new_hash[k1.to_s] = v1
         end
-      else
-        # puts "Key: "+k1.to_s+" is not a hash"
-        new_hash[k1.to_s] = v1
       end
+    else
+      @logger.debug("Flatten [ERROR]: hash did not respond to :each")
     end
     return new_hash
   end
@@ -230,7 +234,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             event["logdate"] = logdate.iso8601
             @logger.debug("Message will be: #{JSON.parse(doc.to_json, :allow_nan => true)}")
             event["message"] = JSON.parse(doc.to_json, :allow_nan => true)
-            flat_doc = flatten(doc.to_json)
+            flat_doc = flatten(doc)
             flat_doc.each do |k,v|
               event[k.to_s] = v.to_s
             end
