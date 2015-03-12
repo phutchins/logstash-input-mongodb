@@ -161,7 +161,12 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     end
 
     def to_json
-      JSON.parse(self.to_h, :allow_nan)
+      #to_h.to_json
+      puts "to_json - self: "+self.to_s
+      puts "to_json - self.class: "+self.class.to_s
+      puts "to_json - slef.to_h: "+self.to_h.to_s
+      my_hash = self.to_h
+      JSON.parse(self.to_h.to_json, :allow_nan => true)
     end
   end
 
@@ -233,10 +238,21 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             decorate(event)
             event["logdate"] = logdate.iso8601
             #@logger.debug("Message will be: #{JSON.parse(doc.to_json, :allow_nan => true)}")
-            event["message"] = JSON.parse(doc.to_json, :allow_nan => true)
+            #event["message"] = JSON.parse(doc.to_json, :allow_nan => true)
+            @logger.debug("type of doc is: "+doc.class.to_s)
+            log_entry = doc.to_h.to_s
+            log_entry['_id'] = log_entry['_id'].to_s
+            event["log_entry"] = log_entry
+            @logger.debug("EVENT looks like: "+event.to_s)
+            @logger.debug("Sent message: "+doc.to_h.to_s)
+            @logger.debug("EVENT looks like: "+event.to_s)
             flat_doc = flatten(doc)
             flat_doc.each do |k,v|
-              event[k.to_s] = v.to_s
+              if /\A[-+]?\d+([.][\d]+)?\z/ === v
+                event[k.to_s] = v.to_i
+              else
+                event[k.to_s] = v.to_s unless k.to_s == "_id"
+              end
             end
             #doc.each do |k, v|
             #  if k != "_id"
