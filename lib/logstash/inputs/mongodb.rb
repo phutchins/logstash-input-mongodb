@@ -256,8 +256,8 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
               doc_obj_bin = doc['_id'].to_a.pack("C*").unpack("a4 a3 a2 a3")
               host_id = doc_obj_bin[1].unpack("S")
               process_id = doc_obj_bin[2].unpack("S")
-              event['host_id'] = host_id
-              event['process_id'] = process_id
+              event['host_id'] = host_id.first.to_i
+              event['process_id'] = process_id.first.to_i
             end
 
             if @parse_method == 'flatten'
@@ -268,13 +268,16 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
                 # Check for an integer
                 if /\A[-+]?\d+[.][\d]+\z/ === v
                   event[k.to_s] = v.to_f
-                elsif /\A[-+]?\d+\z/ === v
+                elsif (/\A[-+]?\d+\z/ === v) || (v.is_a? Integer)
                   event[k.to_s] = v.to_i
                 else
-                  event[k.to_s] = v.to_s unless k.to_s == "_id"
+                  event[k.to_s] = v.to_s unless k.to_s == "_id" || k.to_s == "tags"
+                  if (k.to_s == "tags") && (v.is_a? Array)
+                    event['tags'] = v
+                  end
                 end
               end
-            else if @parse_method == 'dig'
+            elsif @parse_method == 'dig'
               # Dig into the JSON and flatten select elements
               doc.each do |k, v|
                 if k != "_id"
