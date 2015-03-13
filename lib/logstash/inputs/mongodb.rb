@@ -34,8 +34,13 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   # Example collection: events_20150227 or events_
   config :collection, :validate => :string, :required => true
 
+  # This allows you to select the method you would like to use to parse your data
+  config :parse_method, :validate => :string, :default => 'flatten'
+
+  # If not flattening you can dig to flatten select fields
   config :dig_fields, :validate => :array, :default => []
 
+  # This is the second level of hash flattening
   config :dig_dig_fields, :validate => :array, :default => []
 
   # If true, store the @timestamp field in mongodb as an ISODate type instead
@@ -50,6 +55,8 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   # The "_id" field will use the timestamp of the event and overwrite an existing
   # "_id" field in the event.
   config :generateId, :validate => :boolean, :default => false
+
+  config :unpack_mongo_id, :validate => :boolean, :default => false
 
   # The message string to use in the event.
   config :message, :validate => :string, :default => "Default message..."
@@ -244,45 +251,64 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             @logger.debug("EVENT looks like: "+event.to_s)
             @logger.debug("Sent message: "+doc.to_h.to_s)
             @logger.debug("EVENT looks like: "+event.to_s)
-            # Flatten the JSON so that the data is usable in Kibana
-            flat_doc = flatten(doc)
-            flat_doc.each do |k,v|
-              if /\A[-+]?\d+([.][\d]+)?\z/ === v
-                event[k.to_s] = v.to_i
-              else
-                event[k.to_s] = v.to_s unless k.to_s == "_id"
-              end
+            # Extract the HOST_ID and PID from the MongoDB BSON::ObjectID
+            if @unpack_mongo_id
+              doc_obj_bin = doc['_id'].to_a.pack("C*").unpack("a4 a3 a2 a3")
+              host_id = doc_obj_bin[1].unpack("S")
+              process_id = doc_obj_bin[2].unpack("S")
+              event['host_id'] = host_id
+              event['process_id'] = process_id
             end
-            # Dig into the JSON and flatten select elements
-            #doc.each do |k, v|
-            #  if k != "_id"
-            #    if (@dig_fields.include? k) && (v.respond_to? :each)
-            #      v.each do |kk, vv|
-            #        if (@dig_dig_fields.include? kk) && (vv.respond_to? :each)
-            #          vv.each do |kkk, vvv|
-            #            if /\A[-+]?\d+\z/ === vvv
-            #              event["#{k}_#{kk}_#{kkk}"] = vvv.to_i
-            #            else
-            #              event["#{k}_#{kk}_#{kkk}"] = vvv.to_s
-            #            end
-            #          end
-            #        else
-            #          if /\A[-+]?\d+\z/ === vv
-            #            event["#{k}_#{kk}"] = vv.to_i
-            #          else
-            #            event["#{k}_#{kk}"] = vv.to_s
-            #          end
-            #        end
-            #      end
-            #    else
-            #      if /\A[-+]?\d+\z/ === v
-            #        event[k] = v.to_i
-            #      else
-            #        event[k] = v.to_s
-            #      end
-            #    end
-            #  end
-            #end
+
+            if @parse_method == 'flatten'
+              # Flatten the JSON so that the data is usable in Kibana
+              flat_doc = flatten(doc)
+              # Check for different types of expected values and add them to the event
+              flat_doc.each do |k,v|
+                # Check for an integer
+                if /\A[-+]?\d+[.][\d]+\z/ === v
+                  event[k.to_s] = v.to_f
+                elsif /\A[-+]?\d+\z/ === v
+                  event[k.to_s] = v.to_i
+                else
+                  event[k.to_s] = v.to_s unless k.to_s == "_id"
+                end
+              end
+            else if @parse_method == 'dig'
+              # Dig into the JSON and flatten select elements
+              doc.each do |k, v|
+                if k != "_id"
+                  if (@dig_fields.include? k) && (v.respond_to? :each)
+                    v.each do |kk, vv|
+                      if (@dig_dig_fields.include? kk) && (vv.respond_to? :each)
+                        vv.each do |kkk, vvv|
+                          if /\A[-+]?\d+\z/ === vvv
+                            event["#{k}_#{kk}_#{kkk}"] = vvv.to_i
+                          else
+                            event["#{k}_#{kk}_#{kkk}"] = vvv.to_s
+                          end
+                        end
+                      else
+                        if /\A[-+]?\d+\z/ === vv
+                          event["#{k}_#{kk}"] = vv.to_i
+                        else
+                          event["#{k}_#{kk}"] = vv.to_s
+                        end
+                      end
+                    end
+                  else
+                    if /\A[-+]?\d+\z/ === v
+                      event[k] = v.to_i
+                    else
+                      event[k] = v.to_s
+                    end
+                  end
+                end
+              end
+            else
+              # Should probably do some sanitization here and insert the doc as raw as possible for parsing in logstash
+            end
+
             queue << event
             @collection_data[index][:last_id] = doc['_id'].to_s
           end
