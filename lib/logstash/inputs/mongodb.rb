@@ -76,9 +76,9 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   def get_placeholder(sqlitedb, since_table, mongodb, mongo_collection_name)
     since = sqlitedb[SINCE_TABLE]
     x = since.where(:table => "#{since_table}_#{mongo_collection_name}")
-    if x[:place].nil?
-      init_placeholder(sqlitedb, since_table, mongodb, mongo_collection_name)
-      return 0
+    if x[:place].nil? || x[:place] == 0
+      first_entry_id = init_placeholder(sqlitedb, since_table, mongodb, mongo_collection_name)
+      return first_entry_id
     else
       @logger.debug("placeholder already exists, it is #{x[:place]}")
       return x[:place][:place]
@@ -93,6 +93,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     first_entry = mongo_collection.find_one({})
     first_entry_id = first_entry['_id'].to_s
     since.insert(:table => "#{since_table}_#{mongo_collection_name}", :place => first_entry_id)
+    return first_entry_id
   end
 
   public
@@ -209,7 +210,6 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
         bson_doc[k] = bson_debinarize(v)
       end
     end
-
     bson_doc
   end
 
@@ -237,8 +237,6 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             event = LogStash::Event.new("host" => @host)
             decorate(event)
             event["logdate"] = logdate.iso8601
-            #@logger.debug("Message will be: #{JSON.parse(doc.to_json, :allow_nan => true)}")
-            #event["message"] = JSON.parse(doc.to_json, :allow_nan => true)
             @logger.debug("type of doc is: "+doc.class.to_s)
             log_entry = doc.to_h.to_s
             log_entry['_id'] = log_entry['_id'].to_s
@@ -246,6 +244,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             @logger.debug("EVENT looks like: "+event.to_s)
             @logger.debug("Sent message: "+doc.to_h.to_s)
             @logger.debug("EVENT looks like: "+event.to_s)
+            # Flatten the JSON so that the data is usable in Kibana
             flat_doc = flatten(doc)
             flat_doc.each do |k,v|
               if /\A[-+]?\d+([.][\d]+)?\z/ === v
@@ -254,6 +253,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
                 event[k.to_s] = v.to_s unless k.to_s == "_id"
               end
             end
+            # Dig into the JSON and flatten select elements
             #doc.each do |k, v|
             #  if k != "_id"
             #    if (@dig_fields.include? k) && (v.respond_to? :each)
