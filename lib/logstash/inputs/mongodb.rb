@@ -134,6 +134,20 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   end
 
   public
+  def update_watched_collections(mongodb, collection, sqlitedb)
+    collections = get_collection_names(mongodb, collection)
+    collection_data = {}
+    collections.each do |my_collection|
+      init_placeholder_table(sqlitedb)
+      last_id = get_placeholder(sqlitedb, since_table, mongodb, my_collection)
+      if !collection_data[my_collection]
+        collection_data[my_collection] = { :name => my_collection, :last_id => last_id }
+      end
+    end
+    return collection_data
+  end
+
+  public
   def register
     require "mongo"
     require "jdbc/sqlite3"
@@ -154,13 +168,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     @mongodb = conn.db(uriParsed.db_name)
     @sqlitedb = Sequel.connect("jdbc:sqlite:#{@path}")
     # Should check to see if there are new matching tables at a predefined interval or on some trigger
-    @collections = get_collection_names(@mongodb, @collection)
-    @collection_data = {}
-    @collections.each do |collection|
-      init_placeholder_table(@sqlitedb)
-      last_id = get_placeholder(@sqlitedb, since_table, @mongodb, collection)
-      @collection_data[collection] = { :name => collection, :last_id => last_id }
-    end
+    @collection_data = update_watched_collections(@mongodb, @collection, @sqlitedb)
   end # def register
 
   class BSON::OrderedHash
@@ -169,11 +177,6 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     end
 
     def to_json
-      #to_h.to_json
-      puts "to_json - self: "+self.to_s
-      puts "to_json - self.class: "+self.class.to_s
-      puts "to_json - slef.to_h: "+self.to_h.to_s
-      my_hash = self.to_h
       JSON.parse(self.to_h.to_json, :allow_nan => true)
     end
   end
@@ -204,20 +207,6 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
       @logger.debug("Flatten [ERROR]: hash did not respond to :each")
     end
     return new_hash
-  end
-
-  def bson_debinarize(bson_doc)
-    raise ArgumentError, "bson_doc must be a BSON::OrderedHash" unless bson_doc.is_a?(BSON::OrderedHash)
-
-    # each key and value is passed by reference and is modified in-place
-    bson_doc.each do |k,v|
-      if v.is_a?(BSON::Binary)
-        bson_doc[k] = Base64.encode64(v.to_s)
-      elsif v.is_a?(BSON::OrderedHash)
-        bson_doc[k] = bson_debinarize(v)
-      end
-    end
-    bson_doc
   end
 
   def run(queue)
@@ -314,6 +303,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
 
             queue << event
             @collection_data[index][:last_id] = doc['_id'].to_s
+            @collection_data = update_watched_collections(@mongodb, @collection, @sqlitedb)
           end
           # Store the last-seen doc in the database
           update_placeholder(@sqlitedb, since_table, collection_name, @collection_data[index][:last_id])
