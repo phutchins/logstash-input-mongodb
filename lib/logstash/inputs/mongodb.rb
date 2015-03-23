@@ -105,7 +105,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
 
   public
   def update_placeholder(sqlitedb, since_table, mongo_collection_name, place)
-    @logger.debug("updating placeholder for #{since_table}_#{mongo_collection_name} to #{place}")
+    #@logger.debug("updating placeholder for #{since_table}_#{mongo_collection_name} to #{place}")
     since = sqlitedb[SINCE_TABLE]
     since.where(:table => "#{since_table}_#{mongo_collection_name}").update(:place => place)
   end
@@ -222,24 +222,21 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
           collection_name = collection[:name]
           @logger.debug("collection_data is: #{@collection_data}")
           last_id = @collection_data[index][:last_id]
-          @logger.debug("last_id is #{last_id}", :index => index, :collection => collection_name)
+          #@logger.debug("last_id is #{last_id}", :index => index, :collection => collection_name)
           # get batch of events starting at the last_place if it is set
           last_id_object = BSON::ObjectId(last_id)
           cursor = get_cursor_for_collection(@mongodb, collection_name, last_id_object, batch_size)
           cursor.each do |doc|
-            @logger.debug("Date from mongo: #{doc['_id'].generation_time.to_s}")
             logdate = DateTime.parse(doc['_id'].generation_time.to_s)
-            @logger.debug("logdate.iso8601: #{logdate.iso8601}")
             event = LogStash::Event.new("host" => @host)
             decorate(event)
             event["logdate"] = logdate.iso8601
-            @logger.debug("type of doc is: "+doc.class.to_s)
             log_entry = doc.to_h.to_s
             log_entry['_id'] = log_entry['_id'].to_s
             event["log_entry"] = log_entry
-            @logger.debug("EVENT looks like: "+event.to_s)
-            @logger.debug("Sent message: "+doc.to_h.to_s)
-            @logger.debug("EVENT looks like: "+event.to_s)
+            #@logger.debug("EVENT looks like: "+event.to_s)
+            #@logger.debug("Sent message: "+doc.to_h.to_s)
+            #@logger.debug("EVENT looks like: "+event.to_s)
             # Extract the HOST_ID and PID from the MongoDB BSON::ObjectID
             if @unpack_mongo_id
               doc_obj_bin = doc['_id'].to_a.pack("C*").unpack("a4 a3 a2 a3")
@@ -303,11 +300,12 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
 
             queue << event
             @collection_data[index][:last_id] = doc['_id'].to_s
-            @collection_data = update_watched_collections(@mongodb, @collection, @sqlitedb)
           end
           # Store the last-seen doc in the database
           update_placeholder(@sqlitedb, since_table, collection_name, @collection_data[index][:last_id])
         end
+        @logger.debug("Updating watch collections")
+        @collection_data = update_watched_collections(@mongodb, @collection, @sqlitedb)
 
         # nothing found in that iteration
         # sleep a bit
