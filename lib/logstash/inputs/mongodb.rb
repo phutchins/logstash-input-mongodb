@@ -234,6 +234,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             log_entry = doc.to_h.to_s
             log_entry['_id'] = log_entry['_id'].to_s
             event["log_entry"] = log_entry
+            event["mongo_id"] = log_entry['_id']
             #@logger.debug("EVENT looks like: "+event.to_s)
             #@logger.debug("Sent message: "+doc.to_h.to_s)
             #@logger.debug("EVENT looks like: "+event.to_s)
