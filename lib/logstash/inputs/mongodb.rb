@@ -234,7 +234,8 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             log_entry = doc.to_h.to_s
             log_entry['_id'] = log_entry['_id'].to_s
             event["log_entry"] = log_entry
-            event["mongo_id"] = log_entry['_id']
+            event["mongo_id"] = doc['_id'].to_s
+            @logger.debug("mongo_id: "+doc['_id'].to_s)
             #@logger.debug("EVENT looks like: "+event.to_s)
             #@logger.debug("Sent message: "+doc.to_h.to_s)
             #@logger.debug("EVENT looks like: "+event.to_s)
@@ -251,6 +252,14 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
               # Flatten the JSON so that the data is usable in Kibana
               flat_doc = flatten(doc)
               # Check for different types of expected values and add them to the event
+              if flat_doc['info_message'] && (flat_doc['info_message']  =~ /collection stats: .+/)
+                # Some custom stuff I'm having to do to fix formatting in past logs...
+                sub_value = flat_doc['info_message'].sub("collection stats: ", "")
+                JSON.parse(sub_value).each do |k1,v1|
+                  flat_doc["collection_stats_#{k1.to_s}"] = v1
+                end
+              end
+
               flat_doc.each do |k,v|
                 # Check for an integer
                 if /\A[-+]?\d+[.][\d]+\z/ === v
