@@ -80,27 +80,28 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   end
 
   public
+  def init_placeholder(sqlitedb, since_table, mongodb, mongo_collection_name)
+    @logger.debug("init placeholder for #{since_table}_#{mongo_collection_name}")
+    since = sqlitedb[SINCE_TABLE]
+    mongo_collection = mongodb.collection(mongo_collection_name)
+    first_entry = mongo_collection.find({}, :sort => ['_id', Mongo::ASCENDING], :limit => 1).first
+    first_entry_id = first_entry['_id'].to_s
+    since.insert(:table => "#{since_table}_#{mongo_collection_name}", :place => first_entry_id)
+    return first_entry_id
+  end
+
+  public
   def get_placeholder(sqlitedb, since_table, mongodb, mongo_collection_name)
     since = sqlitedb[SINCE_TABLE]
     x = since.where(:table => "#{since_table}_#{mongo_collection_name}")
     if x[:place].nil? || x[:place] == 0
       first_entry_id = init_placeholder(sqlitedb, since_table, mongodb, mongo_collection_name)
+      @logger.debug("FIRST ENTRY ID for #{mongo_collection_name} is #{first_entry_id}")
       return first_entry_id
     else
       @logger.debug("placeholder already exists, it is #{x[:place]}")
       return x[:place][:place]
     end
-  end
-
-  public
-  def init_placeholder(sqlitedb, since_table, mongodb, mongo_collection_name)
-    @logger.debug("init placeholder for #{since_table}_#{mongo_collection_name}")
-    since = sqlitedb[SINCE_TABLE]
-    mongo_collection = mongodb.collection(mongo_collection_name)
-    first_entry = mongo_collection.find_one({})
-    first_entry_id = first_entry['_id'].to_s
-    since.insert(:table => "#{since_table}_#{mongo_collection_name}", :place => first_entry_id)
-    return first_entry_id
   end
 
   public
@@ -130,7 +131,9 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   public
   def get_cursor_for_collection(mongodb, mongo_collection_name, last_id_object, batch_size)
     collection = mongodb.collection(mongo_collection_name)
-    return collection.find({:_id => {:$gt => last_id_object}}).limit(batch_size)
+    # Need to make this sort by date in object id then get the first of the series
+    # db.events_20150320.find().limit(1).sort({ts:1})
+    return collection.find({:_id => {:$gte => last_id_object}}).limit(batch_size)
   end
 
   public
