@@ -269,6 +269,8 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
                   event[k.to_s] = v.to_f
                 elsif (/\A[-+]?\d+\z/ === v) || (v.is_a? Integer)
                   event[k.to_s] = v.to_i
+                elsif v === "NaN"
+                  event[k.to_s] = nil
                 else
                   event[k.to_s] = v.to_s unless k.to_s == "_id" || k.to_s == "tags"
                   if (k.to_s == "tags") && (v.is_a? Array)
