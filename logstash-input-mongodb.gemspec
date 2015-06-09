@@ -18,10 +18,10 @@ Gem::Specification.new do |s|
   s.metadata = { "logstash_plugin" => "true", "logstash_group" => "input" }
 
   # Gem dependencies
-  s.add_runtime_dependency 'logstash', '>= 1.4.0', '< 2.0.0'
+  s.add_runtime_dependency 'logstash-core', '>= 1.4.0', '< 2.0.0'
   s.add_runtime_dependency 'logstash-codec-plain'
   s.add_runtime_dependency 'stud'
-  s.add_runtime_dependency 'jdbc/sqlite3'
+  s.add_runtime_dependency 'jdbc-sqlite3'
   s.add_runtime_dependency 'sequel'
   s.add_development_dependency 'logstash-devutils'
 end
