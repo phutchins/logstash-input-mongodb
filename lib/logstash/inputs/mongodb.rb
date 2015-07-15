@@ -7,12 +7,8 @@ require "socket" # for Socket.gethostname
 require "json"
 require "bson"
 
-# Generate a repeating message.
-#
-# This plugin is intented only as an example.
-
 class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
-  config_name "mongodb"
+  config_name "input"
 
   # If undefined, Logstash will complain, even if codec is unused.
   default :codec, "plain"
@@ -186,6 +182,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
 
   def flatten(my_hash)
     new_hash = {}
+    @logger.debug("Raw Hash: #{my_hash}")
     if my_hash.respond_to? :each
       my_hash.each do |k1,v1|
         if v1.is_a?(Hash)
@@ -209,6 +206,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     else
       @logger.debug("Flatten [ERROR]: hash did not respond to :each")
     end
+    @logger.debug("Flattened Hash: #{new_hash}")
     return new_hash
   end
 
@@ -265,12 +263,18 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
 
               flat_doc.each do |k,v|
                 # Check for an integer
-                if /\A[-+]?\d+[.][\d]+\z/ === v
-                  event[k.to_s] = v.to_f
-                elsif (/\A[-+]?\d+\z/ === v) || (v.is_a? Integer)
-                  event[k.to_s] = v.to_i
+                @logger.debug("key: #{k.to_s} value: #{v.to_s}")
+                if v.is_a? Numeric
+                  event[k.to_s] = v
+                elsif v.is_a? String
+                  if v == "NaN"
+                    event[k.to_s] = Float::NAN
+                  elsif /\A[-+]?\d+[.][\d]+\z/ == v
+                    event[k.to_s] = v.to_f
+                  elsif (/\A[-+]?\d+\z/ === v) || (v.is_a? Integer)
+                    event[k.to_s] = v.to_i
+                  end
                 else
-                  v = nil if v === "NaN"
                   event[k.to_s] = v.to_s unless k.to_s == "_id" || k.to_s == "tags"
                   if (k.to_s == "tags") && (v.is_a? Array)
                     event['tags'] = v
