@@ -24,5 +24,6 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency 'stud', '~> 0'
   s.add_runtime_dependency 'jdbc/sqlite3', '~> 0'
   s.add_runtime_dependency 'sequel', '~> 0'
+  s.add_runtime_dependency 'mongo', '>=1.12.2', '< 2.0.0'
   s.add_development_dependency 'logstash-devutils', '~> 0'
 end
