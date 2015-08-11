@@ -6,9 +6,12 @@ require "stud/interval"
 require "socket" # for Socket.gethostname
 require "json"
 require "bson"
+require "mongo"
+
+include Mongo
 
 class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
-  config_name "input"
+  config_name "mongodb"
 
   # If undefined, Logstash will complain, even if codec is unused.
   default :codec, "plain"
@@ -80,7 +83,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     @logger.debug("init placeholder for #{since_table}_#{mongo_collection_name}")
     since = sqlitedb[SINCE_TABLE]
     mongo_collection = mongodb.collection(mongo_collection_name)
-    first_entry = mongo_collection.find({}, :sort => ['_id', Mongo::ASCENDING], :limit => 1).first
+    first_entry = mongo_collection.find({}).sort('_id' => 1).limit(1).first
     first_entry_id = first_entry['_id'].to_s
     since.insert(:table => "#{since_table}_#{mongo_collection_name}", :place => first_entry_id)
     return first_entry_id
@@ -148,24 +151,29 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
 
   public
   def register
-    require "mongo"
     require "jdbc/sqlite3"
     require "sequel"
-    uriParsed = Mongo::URIParser.new(@uri)
-    conn = uriParsed.connection({})
-    if uriParsed.auths.length > 0
-      uriParsed.auths.each do |auth|
+    mongo_uri = Mongo::URI.new(@uri)
+    hosts_array = mongo_uri.servers
+    db_name = mongo_uri.database
+    ssl_enabled = mongo_uri.options[:ssl]
+    conn = Mongo::Client.new(hosts_array, ssl: ssl_enabled, database: db_name)
+
+    if @db_auths
+      @db_auths.each do |auth|
         if !auth['db_name'].nil?
           conn.add_auth(auth['db_name'], auth['username'], auth['password'], nil)
         end
       end
       conn.apply_saved_authentication()
     end
+
     @host = Socket.gethostname
     @logger.info("Registering MongoDB input", :database => @path)
-    #@mongodb = conn.db(@database)
-    @mongodb = conn.db(uriParsed.db_name)
+
+    @mongodb = conn.database
     @sqlitedb = Sequel.connect("jdbc:sqlite:#{@path}")
+
     # Should check to see if there are new matching tables at a predefined interval or on some trigger
     @collection_data = update_watched_collections(@mongodb, @collection, @sqlitedb)
   end # def register
