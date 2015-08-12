@@ -5,7 +5,6 @@ require "logstash/timestamp"
 require "stud/interval"
 require "socket" # for Socket.gethostname
 require "json"
-require "bson"
 require "mongo"
 
 include Mongo
@@ -250,7 +249,8 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             #@logger.debug("EVENT looks like: "+event.to_s)
             # Extract the HOST_ID and PID from the MongoDB BSON::ObjectID
             if @unpack_mongo_id
-              doc_obj_bin = doc['_id'].to_a.pack("C*").unpack("a4 a3 a2 a3")
+              doc_hex_bytes = doc['_id'].to_s.each_char.each_slice(2).map {|b| b.join.to_i(16) }
+              doc_obj_bin = doc_hex_bytes.pack("C*").unpack("a4 a3 a2 a3")
               host_id = doc_obj_bin[1].unpack("S")
               process_id = doc_obj_bin[2].unpack("S")
               event['host_id'] = host_id.first.to_i
