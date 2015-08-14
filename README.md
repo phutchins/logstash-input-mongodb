@@ -27,7 +27,7 @@ This was designed for parsing logs that were written into mongodb. This means th
 ### Configuration Options
 
   uri: A MongoDB URI for your database or cluster (check the MongoDB documentation for further info on this) [No Default, Required]
-  placeholder_db_path: Path where the place holder database will be stored locally to disk [No Default, Required]
+  placeholder_db_dir: Path where the place holder database will be stored locally to disk [No Default, Required]
     This gets created by the plugin so the directory needs to be writeable by the user that logstash is running as
   placeholder_db_name: Name of the database file that will be created [Default: logstash_sqlite.db]
   collection: A regex that will be used to find desired collecitons. [No Default, Required]
