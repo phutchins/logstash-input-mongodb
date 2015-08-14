@@ -18,8 +18,11 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   # Example URI: mongodb://mydb.host:27017/mydbname?ssl=true
   config :uri, :validate => :string, :required => true
 
-  # The path to the sqlite database file.
-  config :path, :validate => :string, :required => true
+  # The directory that will contain the sqlite database file.
+  config :placeholder_db_path, :validate => :string, :required => true
+
+  # The name of the sqlite databse file
+  config :placeholder_db_name, :validate => :string, :default => "logstash_sqlite.db"
 
   # Any table to exclude by name
   config :exclude_tables, :validate => :array, :default => []
@@ -152,6 +155,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   def register
     require "jdbc/sqlite3"
     require "sequel"
+    placeholder_db_path = File.join(@placeholder_db_dir, @placeholder_db_name)
     mongo_uri = Mongo::URI.new(@uri)
     hosts_array = mongo_uri.servers
     db_name = mongo_uri.database
@@ -168,10 +172,10 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     end
 
     @host = Socket.gethostname
-    @logger.info("Registering MongoDB input", :database => @path)
+    @logger.info("Registering MongoDB input")
 
     @mongodb = conn.database
-    @sqlitedb = Sequel.connect("jdbc:sqlite:#{@path}")
+    @sqlitedb = Sequel.connect("jdbc:sqlite:#{placeholder_db_path}")
 
     # Should check to see if there are new matching tables at a predefined interval or on some trigger
     @collection_data = update_watched_collections(@mongodb, @collection, @sqlitedb)
@@ -223,7 +227,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     sleeptime = sleep_min
 
     begin
-      @logger.debug("Tailing MongoDB", :path => @path)
+      @logger.debug("Tailing MongoDB")
       @logger.debug("Collection data is: #{@collection_data}")
       loop do
         @collection_data.each do |index, collection|
