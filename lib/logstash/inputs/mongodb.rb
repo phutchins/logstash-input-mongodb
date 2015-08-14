@@ -19,7 +19,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   config :uri, :validate => :string, :required => true
 
   # The directory that will contain the sqlite database file.
-  config :placeholder_db_path, :validate => :string, :required => true
+  config :placeholder_db_dir, :validate => :string, :required => true
 
   # The name of the sqlite databse file
   config :placeholder_db_name, :validate => :string, :default => "logstash_sqlite.db"
