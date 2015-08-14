@@ -6,13 +6,20 @@ require 'bson'
 class TestThis < MiniTest::Test
   def test_that_this_works
     input = {"_id"=>BSON::ObjectId('558de77ec5ed007567574a58'), "tags"=>["http"], "info"=>{"method"=>"POST", "rtime"=>"127", "url"=>"apiginvoice", "data"=>{"a"=>291.35, "b"=>291.25, "c"=>291.16, "d"=>289.68, "e"=>261.73, "f"=>Float::NAN}, "host"=>"bitpay.com", "status"=>200, "referrer"=>nil, "raddr"=>"31.192.114.250", "ver"=>"1.1", "ua"=>nil, "rlen"=>nil, "rlocation"=>nil, "query"=>{}}}
+    input2 = {"_id"=>BSON::ObjectId('55cade9a5ef4000e2df9403e'), "tags"=>["info", "api"], "info"=>{"message"=>"api request completed: (%(ptype)s: %(pdata)s) %(facade)s.%(method)s init: %(id)sms facade: %(fd)sms total: %(total)sms params: %(params)s", "data"=>{"ptype"=>"no policy", "pdata"=>"none", "facade"=>"public", "method"=>"getInvoice", "id"=>0, "fd"=>5, "total"=>5, "params"=>"{\"id\":\"EwkJYnFj2bFE9e6xf3aq\"}", "raddr"=>"104.10.38.126"}}}
+    input3 = {"_id"=>BSON::ObjectId('55ccdccf5d36005258e35972'), "tags"=>["info", "api"], "info"=>{"message"=>"API v1 request %(url)s", "data"=>{"path"=>"/rates/:currencyCode", "url"=>"/api/rates/eur", "query"=>{}, "raddr"=>"54.85.231.179"}}}
+    input4 = {"_id"=>BSON::ObjectId('55cdfede6d2800b42c8b8c6f'), "tags"=>["http"], "info"=>{"method"=>"GET", "rtime"=>"17", "url"=>"/api", "host"=>"bitpay.com", "status"=>200, "referrer"=>nil, "raddr"=>"81.171.50.83", "ver"=>"1.1", "ua"=>nil, "rlen"=>"214457", "rlocation"=>nil, "query"=>{}}}
+
     expected = "your mom"
-    assert_equal flatten(input), expected
+    assert_equal flatten(input4), expected
   end
   def test_the_flat_parser
     input = {"_id"=>BSON::ObjectId('558de77ec5ed007567574a58'), "tags"=>["http"], "info"=>{"method"=>"POST", "rtime"=>"127", "url"=>"apiginvoice", "data"=>{"a"=>291.35, "b"=>291.25, "c"=>291.16, "d"=>289.68, "e"=>261.73, "f"=>Float::NAN}, "host"=>"bitpay.com", "status"=>200, "referrer"=>nil, "raddr"=>"31.192.114.250", "ver"=>"1.1", "ua"=>nil, "rlen"=>nil, "rlocation"=>nil, "query"=>{}}}
+    input2 = {"_id"=>BSON::ObjectId('55cade9a5ef4000e2df9403e'), "tags"=>["info", "api"], "info"=>{"message"=>"api request completed: (%(ptype)s: %(pdata)s) %(facade)s.%(method)s init: %(id)sms facade: %(fd)sms total: %(total)sms params: %(params)s", "data"=>{"ptype"=>"no policy", "pdata"=>"none", "facade"=>"public", "method"=>"getInvoice", "id"=>0, "fd"=>5, "total"=>5, "params"=>"{\"id\":\"EwkJYnFj2bFE9e6xf3aq\"}", "raddr"=>"104.10.38.126"}}}
+    input3 = {"_id"=>BSON::ObjectId('55ccdccf5d36005258e35972'), "tags"=>["info", "api"], "info"=>{"message"=>"API v1 request %(url)s", "data"=>{"path"=>"/rates/:currencyCode", "url"=>"/api/rates/eur", "query"=>{}, "raddr"=>"54.85.231.179"}}}
+    input4 = {"_id"=>BSON::ObjectId('55cdfede6d2800b42c8b8c6f'), "tags"=>["http"], "info"=>{"method"=>"GET", "rtime"=>"17", "url"=>"/api", "host"=>"bitpay.com", "status"=>200, "referrer"=>nil, "raddr"=>"81.171.50.83", "ver"=>"1.1", "ua"=>nil, "rlen"=>"214457", "rlocation"=>nil, "query"=>{}}}
     expected = "your mom"
-    assert_equal flat_doc(flatten(input)), expected
+    assert_equal flat_doc(flatten(input4)), expected
   end
 end
 
