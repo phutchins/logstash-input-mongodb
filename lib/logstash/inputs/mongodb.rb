@@ -145,7 +145,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
       init_placeholder_table(sqlitedb)
       last_id = get_placeholder(sqlitedb, since_table, mongodb, my_collection)
       if !collection_data[my_collection]
-        collection_data[my_collection] = { :name => my_collection, :last_id => last_id }
+        collection_data[my_collection] = { :name > my_collection, :last_id > last_id }
       end
     end
     return collection_data
