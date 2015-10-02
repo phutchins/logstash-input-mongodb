@@ -134,7 +134,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     collection = mongodb.collection(mongo_collection_name)
     # Need to make this sort by date in object id then get the first of the series
     # db.events_20150320.find().limit(1).sort({ts:1})
-    return collection.find({:_id > {:$gte > last_id_object}}).limit(batch_size)
+    return collection.find({:_id => {:$gte => last_id_object}}).limit(batch_size)
   end
 
   public
@@ -145,7 +145,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
       init_placeholder_table(sqlitedb)
       last_id = get_placeholder(sqlitedb, since_table, mongodb, my_collection)
       if !collection_data[my_collection]
-        collection_data[my_collection] = { :name > my_collection, :last_id > last_id }
+        collection_data[my_collection] = { :name => my_collection, :last_id => last_id }
       end
     end
     return collection_data
