@@ -14,14 +14,14 @@ This was designed for parsing logs that were written into mongodb. This means th
 ### Installation
 
 + Logstash installed from ZIP | TGZ
-  + bin/plugin install /path/to/logstash-input-mongodb-0.1.3.gem
+  + bin/plugin install /path/to/logstash-input-mongodb-0.3.0.gem
 
 + Logstash from GIT
   + git clone https://github.com/elastic/logstash.git
   + cd logstash
   + (ensure that the correct jruby is installed for the version of logstash you are installing)
   + rake test:install-core
-  + bin/plugin install /path/to/logstash-input-mongodb-0.1.3.gem
+  + bin/plugin install /path/to/logstash-input-mongodb-0.3.0.gem
   + bin/plugin install --development
 
 ### Configuration Options
