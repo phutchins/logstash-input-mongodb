@@ -357,7 +357,6 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
         #sleeptime = sleep_min
       end
     rescue LogStash::ShutdownSignal
-      break
       if @interrupted
         @logger.debug("Mongo Input shutting down")
       end
