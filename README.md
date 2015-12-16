@@ -69,3 +69,9 @@ output {
   }
 }
 ```
+
+### MongoDB URI
+
+The URI parameter is where you would specify all of your mongodb options including things like auth and SSL. You should use a connection string (URI) compatible with the mongodb spec.
+
+For more information on MongoDB URI's please see the MongoDB documentation: https://docs.mongodb.org/v3.0/reference/connection-string/

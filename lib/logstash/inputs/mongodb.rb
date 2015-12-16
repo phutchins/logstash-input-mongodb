@@ -156,20 +156,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     require "jdbc/sqlite3"
     require "sequel"
     placeholder_db_path = File.join(@placeholder_db_dir, @placeholder_db_name)
-    mongo_uri = Mongo::URI.new(@uri)
-    hosts_array = mongo_uri.servers
-    db_name = mongo_uri.database
-    ssl_enabled = mongo_uri.options[:ssl]
-    conn = Mongo::Client.new(hosts_array, ssl: ssl_enabled, database: db_name)
-
-    if @db_auths
-      @db_auths.each do |auth|
-        if !auth['db_name'].nil?
-          conn.add_auth(auth['db_name'], auth['username'], auth['password'], nil)
-        end
-      end
-      conn.apply_saved_authentication()
-    end
+    conn = Mongo::Client.new(@uri)
 
     @host = Socket.gethostname
     @logger.info("Registering MongoDB input")
