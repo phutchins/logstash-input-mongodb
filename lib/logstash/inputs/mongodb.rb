@@ -213,10 +213,11 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     sleep_max = 5
     sleeptime = sleep_min
 
-    begin
-      @logger.debug("Tailing MongoDB")
-      @logger.debug("Collection data is: #{@collection_data}")
-      loop do
+    @logger.debug("Tailing MongoDB")
+    @logger.debug("Collection data is: #{@collection_data}")
+
+    while true && !stop?
+      begin
         @collection_data.each do |index, collection|
           collection_name = collection[:name]
           @logger.debug("collection_data is: #{@collection_data}")
@@ -341,13 +342,15 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
         @logger.debug("No new rows. Sleeping.", :time => sleeptime)
         sleeptime = [sleeptime * 2, sleep_max].min
         sleep(sleeptime)
-        #sleeptime = sleep_min
-      end
-    rescue LogStash::ShutdownSignal
-      if @interrupted
-        @logger.debug("Mongo Input shutting down")
+      rescue => e
+        @logger.warn('MongoDB Input threw an exception, restarting', :exception => e)
       end
     end
   end # def run
+
+  def close
+    # If needed, use this to tidy up on shutdown
+    @logger.debug("Shutting down...")
+  end
 
 end # class LogStash::Inputs::Example
