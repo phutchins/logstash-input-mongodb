@@ -266,6 +266,8 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
                 @logger.debug("key: #{k.to_s} value: #{v.to_s}")
                 if v.is_a? Numeric
                   event[k.to_s] = v
+                elsif v.is_a? Time
+                  event[k.to_s] = v.iso8601
                 elsif v.is_a? String
                   if v == "NaN"
                     event[k.to_s] = Float::NAN
