@@ -93,7 +93,12 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     mongo_collection = mongodb.collection(mongo_collection_name)
     
     first_entry = mongo_collection.find({}).sort(since_column => 1).limit(1).first
-    first_entry_id = first_entry[since_column].to_s
+    first_entry_id = ''
+    if since_type == 'id' 
+      first_entry_id = first_entry[since_column].to_s
+    else
+      first_entry_id = first_entry[since_column].to_i
+    end
     since.insert(:table => "#{since_table}_#{mongo_collection_name}", :place => first_entry_id)
     @logger.info("init placeholder for #{since_table}_#{mongo_collection_name}: #{first_entry}")
     return first_entry_id
