@@ -1,4 +1,5 @@
 # encoding: utf-8
+
 require "logstash/inputs/base"
 require "logstash/namespace"
 require "logstash/timestamp"
@@ -134,7 +135,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     collection = mongodb.collection(mongo_collection_name)
     # Need to make this sort by date in object id then get the first of the series
     # db.events_20150320.find().limit(1).sort({ts:1})
-    return collection.find({:_id => {:$gt => last_id_object}}).limit(batch_size)
+    return collection.find({:_id => {:$gte => last_id_object}}).limit(batch_size)
   end
 
   public
@@ -230,10 +231,10 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             logdate = DateTime.parse(doc['_id'].generation_time.to_s)
             event = LogStash::Event.new("host" => @host)
             decorate(event)
-            event["logdate"] = logdate.iso8601
+            event["logdate"] = logdate.iso8601.force_encoding(Encoding::UTF_8)
             log_entry = doc.to_h.to_s
             log_entry['_id'] = log_entry['_id'].to_s
-            event["log_entry"] = log_entry
+            event["log_entry"] = log_entry.force_encoding(Encoding::UTF_8)
             event["mongo_id"] = doc['_id'].to_s
             @logger.debug("mongo_id: "+doc['_id'].to_s)
             #@logger.debug("EVENT looks like: "+event.to_s)
