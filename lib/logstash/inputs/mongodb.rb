@@ -277,7 +277,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
                     event[k.to_s] = v
                   end
                 else
-                  event[k.to_s] = v.to_s unless k.to_s == "_id" || k.to_s == "tags"
+                  event[k.to_s] = v unless k.to_s == "_id" || k.to_s == "tags"
                   if (k.to_s == "tags") && (v.is_a? Array)
                     event['tags'] = v
                   end
