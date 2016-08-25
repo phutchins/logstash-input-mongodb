@@ -302,7 +302,9 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
                   else
                     event.set(k.to_s, v)
                   end
-                else
+                  elsif v.is_a? Hash
+                    event.set(k.to_s, v)
+                  else
                   if k.to_s  == "_id" || k.to_s == "tags"
                     event.set(k.to_s, v.to_s )
                   end
@@ -344,9 +346,18 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
               end
             elsif @parse_method == 'simple'
               doc.each do |k, v|
+                  if k == '_id'
+                    event.set("mongo_id", doc['_id'].to_s)
+                    next
+                  end
+                  if k.include? "@"
+                    next
+                  end
                   if v.is_a? Numeric
                     event.set(k, v.abs)
                   elsif v.is_a? Array
+                    event.set(k, v)
+                  elsif v.is_a? Hash
                     event.set(k, v)
                   elsif v == "NaN"
                     event.set(k, Float::NAN)
