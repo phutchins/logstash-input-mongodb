@@ -258,11 +258,11 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             logdate = DateTime.parse(doc['_id'].generation_time.to_s)
             event = LogStash::Event.new("host" => @host)
             decorate(event)
-            event["logdate"] = logdate.iso8601
+            event.set("logdate","logdate.iso8601")
             log_entry = doc.to_h.to_s
             log_entry['_id'] = log_entry['_id'].to_s
-            event["log_entry"] = log_entry
-            event["mongo_id"] = doc['_id'].to_s
+            event.set("log_entry", "log_entry")
+            event.set("mongo_id",doc['_id'].to_s)
             @logger.debug("mongo_id: "+doc['_id'].to_s)
             #@logger.debug("EVENT looks like: "+event.to_s)
             #@logger.debug("Sent message: "+doc.to_h.to_s)
@@ -273,8 +273,8 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
               doc_obj_bin = doc_hex_bytes.pack("C*").unpack("a4 a3 a2 a3")
               host_id = doc_obj_bin[1].unpack("S")
               process_id = doc_obj_bin[2].unpack("S")
-              event['host_id'] = host_id.first.to_i
-              event['process_id'] = process_id.first.to_i
+              event.set('host_id',host_id.first.to_i)
+              event.set('process_id',process_id.first.to_i)
             end
 
             if @parse_method == 'flatten'
@@ -293,23 +293,26 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
                 # Check for an integer
                 @logger.debug("key: #{k.to_s} value: #{v.to_s}")
                 if v.is_a? Numeric
-                  event[k.to_s] = v
+                  event.set(k.to_s,v)
                 elsif v.is_a? Time
-                  event[k.to_s] = v.iso8601
+                  event.set(k.to_s,v.iso8601)
+
                 elsif v.is_a? String
                   if v == "NaN"
-                    event[k.to_s] = Float::NAN
+                    event.set(k.to_s, Float::NAN)
                   elsif /\A[-+]?\d+[.][\d]+\z/ == v
-                    event[k.to_s] = v.to_f
+                    event.set(k.to_s, v.to_f)
                   elsif (/\A[-+]?\d+\z/ === v) || (v.is_a? Integer)
-                    event[k.to_s] = v.to_i
+                    event.set(k.to_s, v.to_i)
                   else
-                    event[k.to_s] = v
+                    event.set(k.to_s, v)
                   end
                 else
-                  event[k.to_s] = v.to_s unless k.to_s == "_id" || k.to_s == "tags"
+                  if k.to_s  == "_id" || k.to_s == "tags"
+                    event.set(k.to_s, v.to_s )
+                  end
                   if (k.to_s == "tags") && (v.is_a? Array)
-                    event['tags'] = v
+                    event.set('tags',v)
                   end
                 end
               end
@@ -322,24 +325,24 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
                       if (@dig_dig_fields.include? kk) && (vv.respond_to? :each)
                         vv.each do |kkk, vvv|
                           if /\A[-+]?\d+\z/ === vvv
-                            event["#{k}_#{kk}_#{kkk}"] = vvv.to_i
+                            event.set("#{k}_#{kk}_#{kkk}",vvv.to_i)
                           else
-                            event["#{k}_#{kk}_#{kkk}"] = vvv.to_s
+                            event.set("#{k}_#{kk}_#{kkk}", vvv.to_s)
                           end
                         end
                       else
                         if /\A[-+]?\d+\z/ === vv
-                          event["#{k}_#{kk}"] = vv.to_i
+                          event.set("#{k}_#{kk}", vv.to_i)
                         else
-                          event["#{k}_#{kk}"] = vv.to_s
+                          event.set("#{k}_#{kk}",vv.to_s)
                         end
                       end
                     end
                   else
                     if /\A[-+]?\d+\z/ === v
-                      event[k] = v.to_i
+                      event.set(k,v.to_i)
                     else
-                      event[k] = v.to_s
+                      event.set(k,v.to_s)
                     end
                   end
                 end
@@ -347,13 +350,13 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             elsif @parse_method == 'simple'
               doc.each do |k, v|
                   if v.is_a? Numeric
-                    event[k] = v.abs
+                    event.set(k, v.abs)
                   elsif v.is_a? Array
-                    event[k] = v
+                    event.set(k, v)
                   elsif v == "NaN"
-                    event[k] = Float::NAN
+                    event.set(k, Float::NAN)
                   else
-                    event[k] = v.to_s
+                    event.set(k, v.to_s)
                   end
               end
             end
