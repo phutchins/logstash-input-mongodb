@@ -31,6 +31,12 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
 
   config :since_table, :validate => :string, :default => "logstash_since"
 
+  # This allows you to select the column you would like compare the since info
+  config :since_column, :validate => :string, :default => "_id"
+
+  # This allows you to select the type of since info, like "id", "date"
+  config :since_type,   :validate => :string, :default => "id"
+
   # The collection to use. Is turned into a regex so 'events' will match 'events_20150227'
   # Example collection: events_20150227 or events_
   config :collection, :validate => :string, :required => true
@@ -85,9 +91,16 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     @logger.debug("init placeholder for #{since_table}_#{mongo_collection_name}")
     since = sqlitedb[SINCE_TABLE]
     mongo_collection = mongodb.collection(mongo_collection_name)
-    first_entry = mongo_collection.find({}).sort('_id' => 1).limit(1).first
-    first_entry_id = first_entry['_id'].to_s
+    
+    first_entry = mongo_collection.find({}).sort(since_column => 1).limit(1).first
+    first_entry_id = ''
+    if since_type == 'id' 
+      first_entry_id = first_entry[since_column].to_s
+    else
+      first_entry_id = first_entry[since_column].to_i
+    end
     since.insert(:table => "#{since_table}_#{mongo_collection_name}", :place => first_entry_id)
+    @logger.info("init placeholder for #{since_table}_#{mongo_collection_name}: #{first_entry}")
     return first_entry_id
   end
 
@@ -134,7 +147,13 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     collection = mongodb.collection(mongo_collection_name)
     # Need to make this sort by date in object id then get the first of the series
     # db.events_20150320.find().limit(1).sort({ts:1})
-    return collection.find({:_id => {:$gt => last_id_object}}).limit(batch_size)
+
+    av = {}
+    if last_id_object != '' 
+      av = {since_column => {:$gt => last_id_object}}
+    end
+
+    return collection.find(av).sort(since_column => 1).limit(batch_size)
   end
 
   public
@@ -224,17 +243,26 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
           last_id = @collection_data[index][:last_id]
           #@logger.debug("last_id is #{last_id}", :index => index, :collection => collection_name)
           # get batch of events starting at the last_place if it is set
-          last_id_object = BSON::ObjectId(last_id)
+
+
+          last_id_object = last_id
+          if since_type == 'id'
+            last_id_object = BSON::ObjectId(last_id)
+          elsif since_type == 'time'
+            if last_id != ''
+              last_id_object = Time.at(last_id)
+            end
+          end
           cursor = get_cursor_for_collection(@mongodb, collection_name, last_id_object, batch_size)
           cursor.each do |doc|
             logdate = DateTime.parse(doc['_id'].generation_time.to_s)
             event = LogStash::Event.new("host" => @host)
             decorate(event)
-            event["logdate"] = logdate.iso8601
+            event.set("logdate","logdate.iso8601")
             log_entry = doc.to_h.to_s
             log_entry['_id'] = log_entry['_id'].to_s
-            event["log_entry"] = log_entry
-            event["mongo_id"] = doc['_id'].to_s
+            event.set("log_entry", "log_entry")
+            event.set("mongo_id",doc['_id'].to_s)
             @logger.debug("mongo_id: "+doc['_id'].to_s)
             #@logger.debug("EVENT looks like: "+event.to_s)
             #@logger.debug("Sent message: "+doc.to_h.to_s)
@@ -245,8 +273,8 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
               doc_obj_bin = doc_hex_bytes.pack("C*").unpack("a4 a3 a2 a3")
               host_id = doc_obj_bin[1].unpack("S")
               process_id = doc_obj_bin[2].unpack("S")
-              event['host_id'] = host_id.first.to_i
-              event['process_id'] = process_id.first.to_i
+              event.set('host_id',host_id.first.to_i)
+              event.set('process_id',process_id.first.to_i)
             end
 
             if @parse_method == 'flatten'
@@ -265,21 +293,26 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
                 # Check for an integer
                 @logger.debug("key: #{k.to_s} value: #{v.to_s}")
                 if v.is_a? Numeric
-                  event[k.to_s] = v
+                  event.set(k.to_s,v)
+                elsif v.is_a? Time
+                  event.set(k.to_s,v.iso8601)
+
                 elsif v.is_a? String
                   if v == "NaN"
-                    event[k.to_s] = Float::NAN
+                    event.set(k.to_s, Float::NAN)
                   elsif /\A[-+]?\d+[.][\d]+\z/ == v
-                    event[k.to_s] = v.to_f
+                    event.set(k.to_s, v.to_f)
                   elsif (/\A[-+]?\d+\z/ === v) || (v.is_a? Integer)
-                    event[k.to_s] = v.to_i
+                    event.set(k.to_s, v.to_i)
                   else
-                    event[k.to_s] = v
+                    event.set(k.to_s, v)
                   end
                 else
-                  event[k.to_s] = v.to_s unless k.to_s == "_id" || k.to_s == "tags"
+                  if k.to_s  == "_id" || k.to_s == "tags"
+                    event.set(k.to_s, v.to_s )
+                  end
                   if (k.to_s == "tags") && (v.is_a? Array)
-                    event['tags'] = v
+                    event.set('tags',v)
                   end
                 end
               end
@@ -292,24 +325,24 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
                       if (@dig_dig_fields.include? kk) && (vv.respond_to? :each)
                         vv.each do |kkk, vvv|
                           if /\A[-+]?\d+\z/ === vvv
-                            event["#{k}_#{kk}_#{kkk}"] = vvv.to_i
+                            event.set("#{k}_#{kk}_#{kkk}",vvv.to_i)
                           else
-                            event["#{k}_#{kk}_#{kkk}"] = vvv.to_s
+                            event.set("#{k}_#{kk}_#{kkk}", vvv.to_s)
                           end
                         end
                       else
                         if /\A[-+]?\d+\z/ === vv
-                          event["#{k}_#{kk}"] = vv.to_i
+                          event.set("#{k}_#{kk}", vv.to_i)
                         else
-                          event["#{k}_#{kk}"] = vv.to_s
+                          event.set("#{k}_#{kk}",vv.to_s)
                         end
                       end
                     end
                   else
                     if /\A[-+]?\d+\z/ === v
-                      event[k] = v.to_i
+                      event.set(k,v.to_i)
                     else
-                      event[k] = v.to_s
+                      event.set(k,v.to_s)
                     end
                   end
                 end
@@ -317,19 +350,27 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
             elsif @parse_method == 'simple'
               doc.each do |k, v|
                   if v.is_a? Numeric
-                    event[k] = v.abs
+                    event.set(k, v.abs)
                   elsif v.is_a? Array
-                    event[k] = v
+                    event.set(k, v)
                   elsif v == "NaN"
-                    event[k] = Float::NAN
+                    event.set(k, Float::NAN)
                   else
-                    event[k] = v.to_s
+                    event.set(k, v.to_s)
                   end
               end
             end
 
             queue << event
-            @collection_data[index][:last_id] = doc['_id'].to_s
+
+            since_id = doc[since_column]
+            if since_type == 'id' 
+              since_id = doc[since_column].to_s
+            elsif since_type == 'time'
+              since_id = doc[since_column].to_i
+            end
+
+            @collection_data[index][:last_id] = since_id
           end
           # Store the last-seen doc in the database
           update_placeholder(@sqlitedb, since_table, collection_name, @collection_data[index][:last_id])
