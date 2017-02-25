@@ -7,6 +7,7 @@ require "stud/interval"
 require "socket" # for Socket.gethostname
 require "json"
 require "mongo"
+require "jruby-mapdb"
 
 include Mongo
 
@@ -19,11 +20,13 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   # Example URI: mongodb://mydb.host:27017/mydbname?ssl=true
   config :uri, :validate => :string, :required => true
 
-  # The directory that will contain the sqlite database file.
+  # The directory that will contain the mapdb database file.
   config :placeholder_db_dir, :validate => :string, :required => true
 
-  # The name of the sqlite databse file
-  config :placeholder_db_name, :validate => :string, :default => "logstash_sqlite.db"
+  # The name of the mapdb databse file
+  # Need to do migration from old db file to new one?
+  #config :placeholder_db_name, :validate => :string, :default => "logstash_sqlite.db"
+  config :placeholder_db_name, :validate => :string, :default => "logstash.placemap"
 
   # Any table to exclude by name
   config :exclude_tables, :validate => :array, :default => []
@@ -152,12 +155,12 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   end
 
   public
-  def update_watched_collections(mongodb, collection, sqlitedb)
+  def update_watched_collections(mongodb, collection, placedb)
     collections = get_collection_names(mongodb, collection)
     collection_data = {}
     collections.each do |my_collection|
-      init_placeholder_table(sqlitedb)
-      last_id = get_placeholder(sqlitedb, since_table, mongodb, my_collection)
+      init_placeholder_table(placedb)
+      last_id = get_placeholder(placedb, since_table, mongodb, my_collection)
       if !collection_data[my_collection]
         collection_data[my_collection] = { :name => my_collection, :last_id => last_id }
       end
@@ -176,10 +179,11 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     @logger.info("Registering MongoDB input")
 
     @mongodb = conn.database
-    @sqlitedb = Sequel.connect("jdbc:sqlite:#{placeholder_db_path}")
+    @placedb = Mapdb::DB.new(placeholder_db_path)
+    @placetable = db.tree :place
 
     # Should check to see if there are new matching tables at a predefined interval or on some trigger
-    @collection_data = update_watched_collections(@mongodb, @collection, @sqlitedb)
+    @collection_data = update_watched_collections(@mongodb, @collection, @placedb)
   end # def register
 
   class BSON::OrderedHash
