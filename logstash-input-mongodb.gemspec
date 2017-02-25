@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = 'logstash-input-mongodb'
-  s.version = '0.4.0'
+  s.version = '0.4.1'
   s.licenses = ['Apache License (2.0)']
   s.summary = "This takes entries from mongodb as an input to logstash."
   s.description = "This gem is a logstash plugin required to be installed on top of the Logstash core pipeline using $LS_HOME/bin/plugin install gemname. This gem is not a stand-alone program"
