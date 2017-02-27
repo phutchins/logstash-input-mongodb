@@ -112,7 +112,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     if x[:place].nil? || x[:place] == 0
       first_entry_id = init_placeholder(sqlitedb, since_table, mongodb, mongo_collection_name)
       @logger.debug("FIRST ENTRY ID for #{mongo_collection_name} is #{first_entry_id}")
-      return first_entry_id
+      return [first_entry_id, first_entry_id]
     else
       @logger.debug("placeholder already exists, it is #{x[:place]}")
       return x[:place][:place]
@@ -144,10 +144,15 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   end
 
   public
-  def get_cursor_for_collection(mongodb, mongo_collection_name, last_id_object, batch_size)
+  def get_cursor_for_collection(mongodb, mongo_collection_name, first_entry_id_object, last_id_object, batch_size)
     collection = mongodb.collection(mongo_collection_name)
     # Need to make this sort by date in object id then get the first of the series
     # db.events_20150320.find().limit(1).sort({ts:1})
+    if first_entry_id_object == last_id_object 
+      @logger.info("get_cursor_for_collection first entry:#{first_entry_id_object}")
+      return collection.find({:_id => {:$eq => first_entry_id_object}}).limit(1)
+    end
+
     return collection.find({:_id => {:$gt => last_id_object}}).limit(batch_size)
   end
 
@@ -157,7 +162,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     collection_data = {}
     collections.each do |my_collection|
       init_placeholder_table(sqlitedb)
-      last_id = get_placeholder(sqlitedb, since_table, mongodb, my_collection)
+      last_id, first_entry_id = get_placeholder(sqlitedb, since_table, mongodb, my_collection)
       if !collection_data[my_collection]
         collection_data[my_collection] = { :name => my_collection, :last_id => last_id }
       end
@@ -240,6 +245,18 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
           # get batch of events starting at the last_place if it is set
 
 
+          first_entry_id = @collection_data[index][:first_entry_id]
+          first_entry_id_object = first_entry_id
+          if since_type == 'id'
+            if !first_entry_id.nil?
+              first_entry_id_object = BSON::ObjectId(first_entry_id)
+            end
+          elsif since_type == 'time'
+            if first_entry_id != '' && !first_entry_id.nil?
+              first_entry_id_object = Time.at(first_entry_id)
+            end
+          end
+
           last_id_object = last_id
           if since_type == 'id'
             last_id_object = BSON::ObjectId(last_id)
@@ -248,7 +265,8 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
               last_id_object = Time.at(last_id)
             end
           end
-          cursor = get_cursor_for_collection(@mongodb, collection_name, last_id_object, batch_size)
+
+          cursor = get_cursor_for_collection(@mongodb, collection_name, first_entry_id_object, last_id_object, batch_size)
           cursor.each do |doc|
             logdate = DateTime.parse(doc['_id'].generation_time.to_s)
             event = LogStash::Event.new("host" => @host)
