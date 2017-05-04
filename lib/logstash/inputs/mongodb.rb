@@ -28,7 +28,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   # Any table to exclude by name
   config :exclude_tables, :validate => :array, :default => []
 
-  config :batch_size, :avlidate => :number, :default => 30
+  config :batch_size, :validate => :number, :default => 30
 
   config :since_table, :validate => :string, :default => "logstash_since"
 
