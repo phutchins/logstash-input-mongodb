@@ -42,6 +42,8 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   # Example collection: events_20150227 or events_
   config :collection, :validate => :string, :required => true
 
+  config :river_mode, :validate => :boolean, :default => false
+
   # This allows you to select the method you would like to use to parse your data
   config :parse_method, :validate => :string, :default => 'flatten'
 
@@ -373,8 +375,13 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
         @logger.debug("Updating watch collections")
         @collection_data = update_watched_collections(@mongodb, @collection, @sqlitedb)
 
+        if @river_mode
+          return
+        end
+
         # nothing found in that iteration
         # sleep a bit
+
         @logger.debug("No new rows. Sleeping.", :time => sleeptime)
         sleeptime = [sleeptime * 2, sleep_max].min
         sleep(sleeptime)
