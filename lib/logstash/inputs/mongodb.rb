@@ -80,7 +80,7 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     begin
       sqlitedb.create_table "#{SINCE_TABLE}" do
         String :table
-        Int :place
+        String :place
       end
     rescue
       @logger.debug("since table already exists")
