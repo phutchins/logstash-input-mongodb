@@ -38,6 +38,9 @@ batch_size           [Int]         Size of the batch of mongo documents to pull 
 parse_method         [String]      Built in parsing of the mongodb document object [Default: 'flatten']
 dig_fields           [Array]       An array of fields that should employ the dig method
 dig_dig_fields       [Array]       This provides a second level of hash flattening after the initial dig has been done
+user                 [String]      The username to use, in case the MongoDB deployment enforces authentication [Not required]
+password             [String]      The password to use, in case the MongoDB deployment enforces authentication [Not required]
+use_ssl              [Boolean]     If true, ssl authentication will be used [Default: false]
 ```
 
 

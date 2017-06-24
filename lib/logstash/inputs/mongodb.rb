@@ -73,6 +73,17 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
   # The default, `1`, means send a message every second.
   config :interval, :validate => :number, :default => 1
 
+  # The user to use, in case mongo authentication is enabled.
+  # The default means that no authentication will be used.
+  config :user, :validate => :string, :default => "Default user..."
+
+  # The password to use, in case mongo authentication is enabled.
+  config :password, :validate => :string, :default => "Default password..."
+
+  # Whether to use ssl when connecting to the mongoDB.
+  # The default, means that ssl will not be used.
+  config :use_ssl, :validate => :boolean, :default => false
+
   SINCE_TABLE = :since_table
 
   public
@@ -170,7 +181,13 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
     require "jdbc/sqlite3"
     require "sequel"
     placeholder_db_path = File.join(@placeholder_db_dir, @placeholder_db_name)
-    conn = Mongo::Client.new(@uri)
+    
+    # In case the default user hasn't been changed, do not use authentication 
+    if (user == "Default user...")
+    	conn = Mongo::Client.new(@uri)
+    else 
+    	conn = Mongo::Client.new(@uri, :user => @user, :password => @password, :ssl => @use_ssl)
+    end
 
     @host = Socket.gethostname
     @logger.info("Registering MongoDB input")
