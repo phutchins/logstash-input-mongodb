@@ -26,8 +26,8 @@ This was designed for parsing logs that were written into mongodb. This means th
 
 ### Compatibility
 
-Logstash 2.x - plugin version 0.3.3
-Logstash 5.x - plugin version 0.4.x and higher
++ Logstash 2.x - plugin version 0.3.3
++ Logstash 5.x - plugin version 0.4.x and higher
 
 ### Configuration Options
 
