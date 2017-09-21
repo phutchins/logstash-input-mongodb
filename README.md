@@ -24,6 +24,11 @@ This was designed for parsing logs that were written into mongodb. This means th
   + bin/plugin install /path/to/logstash-input-mongodb-0.3.0.gem
   + bin/plugin install --development
 
+### Compatibility
+
+Logstash 2.x - plugin version 0.3.3
+Logstash 5.x - plugin version 0.4.x and higher
+
 ### Configuration Options
 
 ```
@@ -35,7 +40,7 @@ placeholder_db_name  [String]      Name of the database file that will be create
 collection           [String]      A regex that will be used to find desired collecitons. [No Default, Required]
 generateId           [Boolean]     If true, this will add a field '_id' that contains the MongoDB Document id
 batch_size           [Int]         Size of the batch of mongo documents to pull at a time [Default: 30]
-parse_method         [String]      Built in parsing of the mongodb document object [Default: 'flatten']
+parse_method         [String]      Built in parsing of the mongodb document object [Default: 'flatten'] [Options: "simple", "dig", "flatten"]
 dig_fields           [Array]       An array of fields that should employ the dig method
 dig_dig_fields       [Array]       This provides a second level of hash flattening after the initial dig has been done
 ```
