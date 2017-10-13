@@ -354,6 +354,9 @@ class LogStash::Inputs::MongoDB < LogStash::Inputs::Base
                     event.set(k, v.to_s)
                   end
               end
+
+            elsif @parse_method == 'json'
+              event.set('data', doc.to_json)
             end
 
             queue << event
